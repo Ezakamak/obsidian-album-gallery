@@ -1,11 +1,19 @@
-export type GallerySort = 'name-asc' | 'name-desc' | 'modified-asc' | 'modified-desc';
+export type GallerySort = 'added-desc' | 'added-asc' | 'name-asc' | 'name-desc';
+
+export interface GalleryImage {
+	id: string;
+	path: string;
+	name: string;
+	addedAt: number;
+}
 
 export interface GalleryAlbum {
 	id: string;
 	name: string;
-	folderPath: string;
-	coverPath?: string;
+	images: GalleryImage[];
+	coverImageId?: string;
 	createdAt: number;
+	updatedAt: number;
 }
 
 export interface GalleryLayout {
@@ -15,7 +23,8 @@ export interface GalleryLayout {
 }
 
 export interface GalleryDocument {
-	version: 1;
+	version: 2;
+	id: string;
 	title: string;
 	albums: GalleryAlbum[];
 	layout: GalleryLayout;
@@ -23,21 +32,42 @@ export interface GalleryDocument {
 
 const DEFAULT_LAYOUT: GalleryLayout = {
 	thumbnailSize: 220,
-	gap: 12,
-	sort: 'modified-desc',
+	gap: 4,
+	sort: 'added-desc',
 };
+
+export function createId(): string {
+	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export function createGalleryDocument(title: string): GalleryDocument {
 	return {
-		version: 1,
+		version: 2,
+		id: createId(),
 		title,
 		albums: [],
 		layout: { ...DEFAULT_LAYOUT },
 	};
 }
 
-export function createAlbumId(): string {
-	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+export function createGalleryAlbum(name: string): GalleryAlbum {
+	const now = Date.now();
+	return {
+		id: createId(),
+		name,
+		images: [],
+		createdAt: now,
+		updatedAt: now,
+	};
+}
+
+export function createGalleryImage(path: string, name: string, addedAt = Date.now()): GalleryImage {
+	return {
+		id: createId(),
+		path,
+		name,
+		addedAt,
+	};
 }
 
 export function parseGalleryDocument(raw: string, fallbackTitle: string): GalleryDocument {
@@ -53,7 +83,8 @@ export function parseGalleryDocument(raw: string, fallbackTitle: string): Galler
 			.filter((album): album is GalleryAlbum => album !== null);
 
 		return {
-			version: 1,
+			version: 2,
+			id: readNonEmptyString(parsed.id) ?? createId(),
 			title: readNonEmptyString(parsed.title) ?? fallbackTitle,
 			albums,
 			layout: parseLayout(parsed.layout),
@@ -63,8 +94,32 @@ export function parseGalleryDocument(raw: string, fallbackTitle: string): Galler
 	}
 }
 
+export function isGalleryDocumentV2(raw: string): boolean {
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		return isRecord(parsed) && parsed.version === 2 && typeof parsed.id === 'string';
+	} catch {
+		return false;
+	}
+}
+
 export function serializeGalleryDocument(document: GalleryDocument): string {
 	return `${JSON.stringify(document, null, 2)}\n`;
+}
+
+export function sortImages(images: GalleryImage[], sort: GallerySort): GalleryImage[] {
+	return [...images].sort((left, right) => {
+		switch (sort) {
+			case 'name-asc':
+				return left.name.localeCompare(right.name);
+			case 'name-desc':
+				return right.name.localeCompare(left.name);
+			case 'added-asc':
+				return left.addedAt - right.addedAt;
+			case 'added-desc':
+				return right.addedAt - left.addedAt;
+		}
+	});
 }
 
 function parseAlbum(value: unknown): GalleryAlbum | null {
@@ -72,24 +127,47 @@ function parseAlbum(value: unknown): GalleryAlbum | null {
 		return null;
 	}
 
-	const id = readNonEmptyString(value.id);
+	const id = readNonEmptyString(value.id) ?? createId();
 	const name = readNonEmptyString(value.name);
-	const folderPath = readNonEmptyString(value.folderPath);
-	if (!id || !name || !folderPath) {
+	if (!name) {
 		return null;
 	}
 
-	const coverPath = readNonEmptyString(value.coverPath);
-	const createdAt = typeof value.createdAt === 'number' && Number.isFinite(value.createdAt)
-		? value.createdAt
-		: Date.now();
+	const imagesValue = Array.isArray(value.images) ? value.images : [];
+	const images = imagesValue
+		.map(parseImage)
+		.filter((image): image is GalleryImage => image !== null);
+
+	const createdAt = readFiniteNumber(value.createdAt) ?? Date.now();
+	const updatedAt = readFiniteNumber(value.updatedAt) ?? createdAt;
+	const coverImageId = readNonEmptyString(value.coverImageId);
 
 	return {
 		id,
 		name,
-		folderPath,
-		...(coverPath ? { coverPath } : {}),
+		images,
+		...(coverImageId ? { coverImageId } : {}),
 		createdAt,
+		updatedAt,
+	};
+}
+
+function parseImage(value: unknown): GalleryImage | null {
+	if (!isRecord(value)) {
+		return null;
+	}
+
+	const path = readNonEmptyString(value.path);
+	const name = readNonEmptyString(value.name);
+	if (!path || !name) {
+		return null;
+	}
+
+	return {
+		id: readNonEmptyString(value.id) ?? createId(),
+		path,
+		name,
+		addedAt: readFiniteNumber(value.addedAt) ?? Date.now(),
 	};
 }
 
@@ -98,18 +176,25 @@ function parseLayout(value: unknown): GalleryLayout {
 		return { ...DEFAULT_LAYOUT };
 	}
 
-	const thumbnailSize = clampNumber(value.thumbnailSize, 120, 420, DEFAULT_LAYOUT.thumbnailSize);
-	const gap = clampNumber(value.gap, 0, 32, DEFAULT_LAYOUT.gap);
-	const sort = isGallerySort(value.sort) ? value.sort : DEFAULT_LAYOUT.sort;
+	const rawSort = readNonEmptyString(value.sort);
+	const sort: GallerySort = isGallerySort(rawSort)
+		? rawSort
+		: rawSort === 'modified-asc'
+			? 'added-asc'
+			: 'added-desc';
 
-	return { thumbnailSize, gap, sort };
+	return {
+		thumbnailSize: clampNumber(value.thumbnailSize, 120, 420, DEFAULT_LAYOUT.thumbnailSize),
+		gap: clampNumber(value.gap, 0, 24, DEFAULT_LAYOUT.gap),
+		sort,
+	};
 }
 
 function isGallerySort(value: unknown): value is GallerySort {
-	return value === 'name-asc'
-		|| value === 'name-desc'
-		|| value === 'modified-asc'
-		|| value === 'modified-desc';
+	return value === 'added-desc'
+		|| value === 'added-asc'
+		|| value === 'name-asc'
+		|| value === 'name-desc';
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -117,6 +202,10 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
 		return fallback;
 	}
 	return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function readFiniteNumber(value: unknown): number | null {
+	return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function readNonEmptyString(value: unknown): string | null {
