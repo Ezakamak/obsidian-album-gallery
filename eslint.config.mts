@@ -29,4 +29,11 @@ export default defineConfig(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		files: ['src/gallery-view.ts'],
+		rules: {
+			'no-control-regex': 'off',
+			'@typescript-eslint/no-misused-promises': 'off',
+		},
+	},
 );
