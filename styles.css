@@ -922,3 +922,123 @@
 		justify-content: center;
 	}
 }
+
+.album-gallery-study-settings {
+	margin: 12px 0 18px;
+	padding: 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 18px;
+	background: var(--background-secondary);
+}
+
+.album-gallery-study-settings-heading {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 14px;
+}
+
+.album-gallery-study-settings-heading h2 {
+	margin: 0 0 4px;
+	font-size: 1rem;
+}
+
+.album-gallery-study-settings-heading p {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: 0.82rem;
+}
+
+.album-gallery-study-settings-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.album-gallery-study-field {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	min-width: 0;
+	color: var(--text-muted);
+	font-size: 0.78rem;
+	font-weight: 600;
+}
+
+.album-gallery-study-field select,
+.album-gallery-study-field input {
+	width: 100%;
+	min-height: 38px;
+	padding: 7px 10px;
+	border-radius: 10px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font: inherit;
+	font-weight: 500;
+}
+
+.album-gallery-study-quota,
+.album-gallery-study-quota-pill {
+	white-space: nowrap;
+	padding: 6px 10px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+	color: var(--interactive-accent);
+	font-size: 0.76rem;
+	font-weight: 700;
+}
+
+.album-gallery-study-quota.is-exhausted {
+	background: color-mix(in srgb, var(--text-error) 14%, transparent);
+	color: var(--text-error);
+}
+
+.album-gallery-study-limit-warning,
+.album-gallery-study-pending {
+	margin-top: 10px;
+	padding: 9px 11px;
+	border-radius: 10px;
+	background: var(--background-primary-alt);
+	color: var(--text-muted);
+	font-size: 0.8rem;
+}
+
+.album-gallery-study-sync-badge {
+	position: absolute;
+	left: 8px;
+	bottom: 8px;
+	z-index: 2;
+	max-width: calc(100% - 16px);
+	padding: 4px 7px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.68);
+	color: white;
+	font-size: 0.68rem;
+	font-weight: 700;
+	line-height: 1;
+	backdrop-filter: blur(8px);
+}
+
+.album-gallery-photo-card {
+	position: relative;
+}
+
+.album-gallery-study-sync-badge.is-synced {
+	background: rgba(22, 128, 76, 0.82);
+}
+
+.album-gallery-study-sync-badge.is-failed,
+.album-gallery-study-sync-badge.is-quota {
+	background: rgba(172, 93, 12, 0.86);
+}
+
+@media (max-width: 620px) {
+	.album-gallery-study-settings-grid {
+		grid-template-columns: 1fr;
+	}
+	.album-gallery-study-settings-heading {
+		flex-direction: column;
+	}
+}
