@@ -1,6 +1,9 @@
 import {
+	Menu,
+	MenuItem,
 	Notice,
 	Plugin,
+	TAbstractFile,
 	TFolder,
 	normalizePath,
 } from 'obsidian';
@@ -41,11 +44,11 @@ export default class AlbumGalleryPlugin extends Plugin {
 			},
 		});
 
-		this.registerEvent(this.app.workspace.on('file-menu', (menu, file) => {
+		this.registerEvent(this.app.workspace.on('file-menu', (menu: Menu, file: TAbstractFile) => {
 			if (!(file instanceof TFolder)) {
 				return;
 			}
-			menu.addItem((item) => item
+			menu.addItem((item: MenuItem) => item
 				.setTitle('New gallery')
 				.setIcon('images')
 				.onClick(() => {
@@ -87,7 +90,7 @@ export default class AlbumGalleryPlugin extends Plugin {
 			serializeGalleryDocument(createGalleryDocument(title)),
 		);
 		await this.app.workspace.getLeaf(false).openFile(file);
-		new Notice('Gallery created.');
+		new Notice('Gallery created. Create an album and add photos.');
 	}
 
 	private findAvailableGalleryPath(folder: TFolder, basename: string): string {
