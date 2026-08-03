@@ -1,6 +1,8 @@
 import {
+	App,
 	Menu,
 	MenuItem,
+	Modal,
 	Notice,
 	Plugin,
 	TAbstractFile,
@@ -8,6 +10,7 @@ import {
 	TFolder,
 	normalizePath,
 	requestUrl,
+	setIcon,
 } from 'obsidian';
 import {
 	DEFAULT_GALLERY_BASENAME,
@@ -33,6 +36,61 @@ import {
 	AlbumGallerySettingTab,
 	DEFAULT_SETTINGS,
 } from './settings';
+
+class EkatechStudyLinkConfirmModal extends Modal {
+	private readonly onConfirm: () => void;
+
+	constructor(app: App, onConfirm: () => void) {
+		super(app);
+		this.onConfirm = onConfirm;
+	}
+
+	onOpen(): void {
+		this.modalEl.addClass('album-gallery-study-link-confirm-modal');
+		this.contentEl.empty();
+
+		const shell = this.contentEl.createDiv({ cls: 'album-gallery-study-link-confirm' });
+		const icon = shell.createDiv({ cls: 'album-gallery-study-link-confirm-icon' });
+		setIcon(icon, 'graduation-cap');
+
+		shell.createEl('h2', { text: 'Ekatech Study hesabına bağlan' });
+		shell.createEl('p', {
+			cls: 'album-gallery-study-link-confirm-lead',
+			text: 'Devam ettiğinde güvenli giriş için Ekatech Study web sitesine yönlendirileceksin.',
+		});
+
+		const notice = shell.createDiv({ cls: 'album-gallery-study-link-confirm-notice' });
+		const noticeIcon = notice.createDiv({ cls: 'album-gallery-study-link-confirm-notice-icon' });
+		setIcon(noticeIcon, 'info');
+		const noticeText = notice.createDiv();
+		noticeText.createEl('strong', {
+			text: 'Bu hizmet yalnızca Ekatech Study uygulaması müşterileri içindir.',
+		});
+		noticeText.createEl('p', {
+			text: 'Study hesabınla giriş yaptıktan ve bağlantıyı onayladıktan sonra Obsidian’a geri dönersin. Hata Defteri fotoğrafları bağlı hesabına yüklenir.',
+		});
+
+		const actions = shell.createDiv({ cls: 'album-gallery-study-link-confirm-actions' });
+		actions.createEl('button', {
+			text: 'Vazgeç',
+			attr: { type: 'button' },
+		}).addEventListener('click', () => this.close());
+
+		const continueButton = actions.createEl('button', {
+			cls: 'mod-cta',
+			text: 'Siteye git',
+			attr: { type: 'button' },
+		});
+		continueButton.addEventListener('click', () => {
+			this.close();
+			this.onConfirm();
+		});
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
 
 export class EkatechStudyApiError extends Error {
 	readonly code: string;
@@ -137,7 +195,9 @@ export default class AlbumGalleryPlugin extends Plugin {
 	}
 
 	beginEkatechStudyLink(): void {
-		void this.beginEkatechStudyLinkFlow();
+		new EkatechStudyLinkConfirmModal(this.app, () => {
+			void this.beginEkatechStudyLinkFlow();
+		}).open();
 	}
 
 	private async beginEkatechStudyLinkFlow(): Promise<void> {
