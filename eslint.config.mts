@@ -13,8 +13,6 @@ export default defineConfig(
 		'package.json',
 		'package-lock.json',
 		'tsconfig.json',
-		'scripts/apply-ekatech-study-integration.mjs',
-		'scripts/fix-ekatech-study-lint.mjs',
 	]),
 	{
 		languageOptions: {
