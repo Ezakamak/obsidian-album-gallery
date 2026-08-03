@@ -57,8 +57,7 @@ jobs:
           grep -Eq '(^|/).github/workflows/album-gallery-cloud-sync-validation.yml$' /tmp/payload-files.txt
           tar -xzf /tmp/album-gallery-cloud-sync.tgz -C .
           rm -rf .github/obsidian-sync-payload
-          rm -f .github/workflows/export-obsidian-sync-context.yml
-          rm -f .github/workflows/apply-album-gallery-cloud-sync-payload.yml
+          rm -f .github/workflows/album-gallery-cloud-sync-validation.yml
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -74,7 +73,6 @@ jobs:
           grep -q 'album-gallery-auth' src/main.ts
           grep -q 'album-gallery-auth' main.js
           ! grep -R -q 'navigator.share\|ekastudyconnect\|ekastudyimport' src main.js
-          test -f .github/workflows/album-gallery-cloud-sync-validation.yml
       - name: Commit implementation
         run: |
           git config user.name 'github-actions[bot]'
