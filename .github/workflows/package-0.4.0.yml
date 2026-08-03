@@ -1,0 +1,49 @@
+name: Package Album Gallery 0.4.0
+
+on:
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout merged master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate and build
+        run: |
+          npm run lint
+          npm run build
+          node -e "const m=require('./manifest.json'); if(m.version!=='0.4.0') process.exit(1)"
+          grep -q 'navigator.share' main.js
+          grep -q 'ekastudyconnect' main.js
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p dist/album-gallery
+          cp main.js manifest.json styles.css dist/album-gallery/
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: album-gallery-0.4.0
+          path: dist/album-gallery
+          if-no-files-found: error
