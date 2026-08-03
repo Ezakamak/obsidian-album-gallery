@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/mobile-gallery-ui-redesign
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
 
 permissions:
@@ -38,6 +41,7 @@ jobs:
         run: npm run build
 
       - name: Commit validated changes
+        if: github.event_name == 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
