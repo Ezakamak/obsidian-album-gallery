@@ -61,10 +61,6 @@ export default class AlbumGalleryPlugin extends Plugin {
 		this.addSettingTab(new AlbumGallerySettingTab(this.app, this));
 	}
 
-	onunload(): void {
-		this.app.workspace.detachLeavesOfType(GALLERY_VIEW_TYPE);
-	}
-
 	async loadSettings(): Promise<void> {
 		const stored = await this.loadData() as Partial<AlbumGallerySettings> | null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, stored ?? {});
