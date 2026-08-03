@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/apple-photos-managed-assets
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
 
 permissions:
@@ -35,6 +38,7 @@ jobs:
         run: npm run build
 
       - name: Commit production bundle
+        if: github.event_name == 'push'
         run: |
           if git diff --quiet -- main.js; then
             echo "main.js is already current"
