@@ -1,0 +1,38 @@
+name: Package Album Gallery 0.3.0
+
+on:
+  push:
+    branches:
+      - agent/package-0.3.0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate package files
+        run: |
+          test -s main.js
+          test -s manifest.json
+          test -s styles.css
+          grep -q '"version": "0.3.0"' manifest.json
+          grep -q 'ekatech-study-mistake-import' main.js
+
+      - name: Stage plugin package
+        run: |
+          mkdir -p album-gallery
+          cp main.js manifest.json styles.css album-gallery/
+
+      - name: Upload plugin package
+        uses: actions/upload-artifact@v4
+        with:
+          name: album-gallery-0.3.0
+          path: album-gallery
+          if-no-files-found: error
+          retention-days: 2
