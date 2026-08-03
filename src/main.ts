@@ -225,7 +225,7 @@ export default class AlbumGalleryPlugin extends Plugin {
 		return this.statusRefreshPromise;
 	}
 
-	async disconnectEkatechStudy(): Promise<void> {
+	async disconnectEkatechStudy(showNotice = true): Promise<void> {
 		const token = this.settings.ekatechStudyToken;
 		if (token) {
 			await requestUrl({
@@ -236,7 +236,7 @@ export default class AlbumGalleryPlugin extends Plugin {
 			}).catch(() => null);
 		}
 		await this.clearStudySession();
-		new Notice('Study hesabından çıkış yapıldı. Normal albümlerin değişmedi.');
+		if (showNotice) new Notice('Study hesabından çıkış yapıldı. Normal albümlerin değişmedi.');
 	}
 
 	private async clearStudySession(): Promise<void> {
