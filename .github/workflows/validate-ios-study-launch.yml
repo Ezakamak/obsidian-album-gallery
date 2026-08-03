@@ -1,0 +1,72 @@
+name: Validate iOS Study launch fix
+
+on:
+  push:
+    branches:
+      - agent/fix-ios-study-launch
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: agent/fix-ios-study-launch
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump plugin version
+        run: |
+          npm version 0.3.1 --no-git-tag-version
+          node <<'NODE'
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+          manifest.version = '0.3.1';
+          fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          const versions = JSON.parse(fs.readFileSync('versions.json', 'utf8'));
+          versions['0.3.1'] = manifest.minAppVersion;
+          fs.writeFileSync('versions.json', JSON.stringify(versions, null, 2) + '\n');
+          NODE
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Verify iOS launch implementation
+        run: |
+          grep -q "window.location.assign(url)" src/main.ts
+          grep -q "Ekatech Study açılamadı" src/main.ts
+          if grep -q "window.open(createEkatechStudyConnectURL" src/main.ts; then
+            echo "Legacy _blank launch is still present"
+            exit 1
+          fi
+          grep -q "location.assign" main.js
+
+      - name: Commit validated bundle and version files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add main.js manifest.json package.json package-lock.json versions.json
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+          else
+            git commit -m "Build Album Gallery 0.3.1 [skip ci]"
+            git push origin HEAD:agent/fix-ios-study-launch
+          fi
