@@ -1,14 +1,16 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type AlbumGalleryPlugin from './main';
 
+export type GalleryDefaultTab = 'photos' | 'albums';
+
 export interface AlbumGallerySettings {
-	includeSubfolders: boolean;
 	batchSize: number;
+	defaultTab: GalleryDefaultTab;
 }
 
 export const DEFAULT_SETTINGS: AlbumGallerySettings = {
-	includeSubfolders: false,
-	batchSize: 80,
+	batchSize: 100,
+	defaultTab: 'photos',
 };
 
 export class AlbumGallerySettingTab extends PluginSettingTab {
@@ -23,24 +25,25 @@ export class AlbumGallerySettingTab extends PluginSettingTab {
 		this.containerEl.empty();
 
 		new Setting(this.containerEl)
-			.setName('Include subfolders')
-			.setDesc('Show images from nested folders inside each album.')
-			.addToggle((toggle) => toggle
-				.setValue(this.plugin.settings.includeSubfolders)
-				.onChange(async (value) => {
-					this.plugin.settings.includeSubfolders = value;
+			.setName('Default tab')
+			.setDesc('Choose which section opens first in a gallery.')
+			.addDropdown((dropdown) => dropdown
+				.addOption('photos', 'Photos')
+				.addOption('albums', 'Albums')
+				.setValue(this.plugin.settings.defaultTab)
+				.onChange(async (value: string) => {
+					this.plugin.settings.defaultTab = value === 'albums' ? 'albums' : 'photos';
 					await this.plugin.saveSettings();
-					this.plugin.refreshOpenGalleryViews();
 				}));
 
 		new Setting(this.containerEl)
-			.setName('Images loaded per batch')
-			.setDesc('Lower values reduce memory use on mobile. Higher values reveal large albums faster.')
+			.setName('Photos loaded per batch')
+			.setDesc('Lower values reduce memory use on mobile. Higher values reveal large galleries faster.')
 			.addSlider((slider) => slider
-				.setLimits(20, 200, 20)
+				.setLimits(20, 300, 20)
 				.setDynamicTooltip()
 				.setValue(this.plugin.settings.batchSize)
-				.onChange(async (value) => {
+				.onChange(async (value: number) => {
 					this.plugin.settings.batchSize = value;
 					await this.plugin.saveSettings();
 				}));
