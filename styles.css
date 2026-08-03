@@ -1,8 +1,279 @@
-/*
+.album-gallery-view {
+	--album-gallery-thumbnail-size: 220px;
+	--album-gallery-gap: 12px;
+	padding: var(--size-4-5);
+	overflow: auto;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.album-gallery-header,
+.album-gallery-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-3);
+}
 
-If your plugin does not need CSS, delete this file.
+.album-gallery-header {
+	margin-bottom: var(--size-4-5);
+}
 
-*/
+.album-gallery-title-row {
+	justify-content: flex-start;
+}
+
+.album-gallery-heading h2,
+.album-gallery-album-body h3,
+.album-gallery-empty h3 {
+	margin: 0;
+}
+
+.album-gallery-subtitle,
+.album-gallery-count,
+.album-gallery-album-meta,
+.album-gallery-album-path,
+.album-gallery-lightbox-counter {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.album-gallery-action-button {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	white-space: nowrap;
+}
+
+.album-gallery-action-button svg {
+	width: 16px;
+	height: 16px;
+}
+
+.album-gallery-album-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: var(--size-4-4);
+}
+
+.album-gallery-album-card {
+	min-width: 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	background: var(--background-secondary);
+	overflow: hidden;
+	cursor: pointer;
+	transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.album-gallery-album-card:hover,
+.album-gallery-album-card:focus-visible {
+	border-color: var(--interactive-accent);
+	box-shadow: var(--shadow-s);
+	transform: translateY(-1px);
+	outline: none;
+}
+
+.album-gallery-album-cover {
+	position: relative;
+	aspect-ratio: 16 / 10;
+	background: var(--background-primary-alt);
+	overflow: hidden;
+}
+
+.album-gallery-album-cover > img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.album-gallery-cover-placeholder,
+.album-gallery-empty-icon {
+	display: grid;
+	place-items: center;
+	width: 100%;
+	height: 100%;
+	color: var(--text-faint);
+}
+
+.album-gallery-cover-placeholder svg,
+.album-gallery-empty-icon svg {
+	width: 42px;
+	height: 42px;
+}
+
+.album-gallery-card-overlay {
+	position: absolute;
+	top: var(--size-2-2);
+	right: var(--size-2-2);
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+.album-gallery-album-card:hover .album-gallery-card-overlay,
+.album-gallery-album-card:focus-within .album-gallery-card-overlay {
+	opacity: 1;
+}
+
+.album-gallery-album-body {
+	padding: var(--size-4-3);
+}
+
+.album-gallery-album-body h3,
+.album-gallery-album-path {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.album-gallery-album-path {
+	margin-top: var(--size-2-1);
+}
+
+.album-gallery-empty {
+	display: flex;
+	min-height: 280px;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-6);
+	border: 1px dashed var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	text-align: center;
+	color: var(--text-muted);
+}
+
+.album-gallery-empty-icon {
+	width: 64px;
+	height: 64px;
+}
+
+.album-gallery-image-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--album-gallery-thumbnail-size)), 1fr));
+	gap: var(--album-gallery-gap);
+}
+
+.album-gallery-image-card {
+	position: relative;
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	aspect-ratio: 1;
+	overflow: hidden;
+	cursor: zoom-in;
+}
+
+.album-gallery-image-card:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.album-gallery-image-card img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+	transition: transform 160ms ease;
+}
+
+.album-gallery-image-card:hover img {
+	transform: scale(1.02);
+}
+
+.album-gallery-load-sentinel {
+	padding: var(--size-4-4);
+	text-align: center;
+	color: var(--text-muted);
+}
+
+.album-gallery-lightbox-modal {
+	width: min(96vw, 1400px);
+	height: min(92vh, 1000px);
+}
+
+.album-gallery-lightbox-modal .modal-content {
+	height: 100%;
+}
+
+.album-gallery-lightbox {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	height: 100%;
+	gap: var(--size-4-3);
+}
+
+.album-gallery-lightbox-stage {
+	display: flex;
+	min-width: 0;
+	height: 100%;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-4-2);
+}
+
+.album-gallery-lightbox-stage > img {
+	max-width: 100%;
+	max-height: calc(100% - 48px);
+	object-fit: contain;
+}
+
+.album-gallery-lightbox-details {
+	display: flex;
+	width: 100%;
+	justify-content: space-between;
+	gap: var(--size-4-3);
+}
+
+.album-gallery-lightbox-caption {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+	.album-gallery-view {
+		padding: var(--size-4-3);
+	}
+
+	.album-gallery-header {
+		align-items: flex-start;
+	}
+
+	.album-gallery-action-button span {
+		display: none;
+	}
+
+	.album-gallery-album-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--size-4-3);
+	}
+
+	.album-gallery-card-overlay {
+		opacity: 1;
+	}
+
+	.album-gallery-lightbox {
+		grid-template-columns: 1fr;
+	}
+
+	.album-gallery-lightbox-nav {
+		position: absolute;
+		top: 50%;
+		z-index: 2;
+		transform: translateY(-50%);
+		background: var(--background-primary);
+	}
+
+	.album-gallery-lightbox-previous {
+		left: var(--size-4-2);
+	}
+
+	.album-gallery-lightbox-next {
+		right: var(--size-4-2);
+	}
+}
