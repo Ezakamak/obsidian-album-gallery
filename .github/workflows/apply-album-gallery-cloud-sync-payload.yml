@@ -3,6 +3,8 @@ name: Apply Album Gallery cloud sync payload
 on:
   push:
     branches: [agent/obsidian-cloud-sync-v1]
+  pull_request:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
