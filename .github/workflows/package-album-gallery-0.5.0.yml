@@ -1,0 +1,38 @@
+name: Package Album Gallery 0.5.0
+
+on:
+  push:
+    branches: [agent/package-0.5.0]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/package-0.5.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - name: Verify release bundle
+        run: |
+          test "$(node -p "require('./manifest.json').version")" = '0.5.0'
+          grep -q '/api/study/obsidian/mistakes' main.js
+          grep -q 'album-gallery-auth' main.js
+          ! grep -q 'ekastudyconnect\|ekastudyimport\|navigator.share' main.js
+          mkdir -p artifact
+          cp main.js manifest.json styles.css artifact/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: album-gallery-0.5.0
+          path: artifact/
+          if-no-files-found: error
