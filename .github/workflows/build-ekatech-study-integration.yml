@@ -1,0 +1,51 @@
+name: Build Ekatech Study local handoff
+
+on:
+  push:
+    branches:
+      - agent/ekatech-study-local-handoff
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: agent/ekatech-study-local-handoff
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply integration
+        run: node scripts/apply-ekatech-study-integration.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit validated production bundle
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.ts src/model.ts src/settings.ts src/gallery-view.ts src/ekatech-study.ts styles.css README.md eslint.config.mts manifest.json package.json package-lock.json versions.json main.js
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+            exit 0
+          fi
+          git commit -m "Add local Ekatech Study mistake handoff [skip ci]"
+          git push origin HEAD:agent/ekatech-study-local-handoff
