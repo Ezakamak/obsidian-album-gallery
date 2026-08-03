@@ -1,0 +1,28 @@
+name: Album Gallery Cloud Sync Validation
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - name: Verify cloud-only Study flow
+        run: |
+          grep -q '/api/study/obsidian/mistakes' src/main.ts
+          grep -q 'album-gallery-auth' src/main.ts
+          grep -q 'syncPendingStudyImages' src/gallery-view.ts
+          ! grep -R -q 'ekastudyconnect\|ekastudyimport\|navigator.share\|Send to Study' src
+          test "$(node -p "require('./manifest.json').version")" = '0.5.0'
