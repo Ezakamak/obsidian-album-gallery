@@ -13,7 +13,6 @@ export default defineConfig(
 		'package.json',
 		'package-lock.json',
 		'tsconfig.json',
-		'scripts/apply-mobile-ui-redesign.mjs',
 	]),
 	{
 		languageOptions: {
