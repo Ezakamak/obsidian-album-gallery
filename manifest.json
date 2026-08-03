@@ -1,9 +1,9 @@
 {
 	"id": "album-gallery",
 	"name": "Album Gallery",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"minAppVersion": "1.8.0",
-	"description": "Create fast file-based galleries where folders act as albums.",
+	"description": "Create Apple Photos-inspired galleries with automatically managed album storage.",
 	"author": "Emir",
 	"authorUrl": "https://github.com/Ezakamak",
 	"isDesktopOnly": false

@@ -1,78 +1,99 @@
 # Album Gallery
 
-Album Gallery is an open-source Obsidian plugin for creating fast, file-based photo galleries.
+Album Gallery is an open-source Obsidian plugin that turns `.gallery` files into a simple, Apple Photos-inspired photo library.
 
-A `.gallery` file behaves like a dedicated Obsidian document type. Open it to see the gallery interface instead of raw JSON. Each folder added to the file becomes an album, while the original folders and images stay in the vault.
+Users do not need to create folders or organize image files manually. Create an album, tap **Add photos**, choose one or many images, and the plugin stores them in a managed vault folder automatically.
 
-## Current foundation
+## Features
 
-- Dedicated `.gallery` file view
-- Create a gallery from the ribbon, command palette, or a folder context menu
-- Add vault folders as albums
-- Album cover and image count
-- Lazy image loading and batched rendering
-- Full-screen lightbox with previous/next navigation
-- Automatic refresh when vault files change
-- Desktop and mobile support
+- Dedicated `.gallery` document type
+- Photos and Albums sections
+- Create, rename, and delete albums
+- Native mobile/desktop file picker with multi-select
+- Automatic managed storage under `Album Gallery Assets/`
+- Safe duplicate filename handling
+- Full-screen lightbox with keyboard buttons and swipe navigation
+- Delete photos through Obsidian's trash system
+- Batched lazy rendering for large libraries
+- Responsive light and dark mode interface
+- Automatic migration of version 1 gallery files to version 2
 
-## Gallery file format
+## How storage works
 
-Gallery files are readable JSON and contain references rather than copied media:
+A gallery file stores album metadata and image references as readable JSON. Imported photos are copied into a plugin-managed structure:
+
+```text
+Album Gallery Assets/
+└── <gallery-id>/
+    └── <album-id>/
+        ├── IMG_0001.heic
+        └── IMG_0002.jpg
+```
+
+The user never needs to create or select these folders. Gallery and album IDs remain stable when a `.gallery` file or album is renamed.
+
+Example version 2 gallery document:
 
 ```json
 {
-  "version": 1,
-  "title": "Travel photos",
+  "version": 2,
+  "id": "gallery-id",
+  "title": "Travel",
   "albums": [
     {
-      "id": "example-album",
+      "id": "album-id",
       "name": "Ankara",
-      "folderPath": "Photos/Ankara",
-      "createdAt": 1785772800000
+      "images": [
+        {
+          "id": "image-id",
+          "path": "Album Gallery Assets/gallery-id/album-id/IMG_0001.jpg",
+          "name": "IMG_0001.jpg",
+          "addedAt": 1785772800000
+        }
+      ],
+      "createdAt": 1785772800000,
+      "updatedAt": 1785772800000
     }
   ],
   "layout": {
     "thumbnailSize": 220,
-    "gap": 12,
-    "sort": "modified-desc"
+    "gap": 4,
+    "sort": "added-desc"
   }
 }
 ```
 
-Removing an album from a gallery does not delete its folder or images.
+Deleting a managed photo or album moves its stored files to Obsidian's trash before removing the gallery metadata.
+
+## Installation
+
+Copy these files into:
+
+```text
+<Vault>/.obsidian/plugins/album-gallery/
+```
+
+Required files:
+
+- `main.js`
+- `manifest.json`
+- `styles.css`
+
+Enable **Album Gallery** under **Settings → Community plugins**, then reload Obsidian.
 
 ## Local development
-
-Use a separate test vault rather than your main vault.
 
 ```bash
 npm install
 npm run dev
 ```
 
-For manual validation:
+Validation:
 
 ```bash
-npm run build
 npm run lint
+npm run build
 ```
-
-Copy or clone the repository into:
-
-```text
-<Vault>/.obsidian/plugins/album-gallery/
-```
-
-Then enable **Album Gallery** under **Settings → Community plugins** and reload Obsidian after rebuilding.
-
-## Roadmap
-
-- Rename albums and choose custom covers
-- Drag-and-drop album ordering
-- Search and filtering
-- Virtualized masonry layout for very large albums
-- Thumbnail cache with safe invalidation
-- Import and export helpers
 
 ## License
 

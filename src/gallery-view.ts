@@ -1,36 +1,55 @@
 import {
 	App,
+	Menu,
 	Modal,
 	Notice,
 	TFile,
 	TFolder,
 	TextFileView,
 	WorkspaceLeaf,
+	normalizePath,
 	setIcon,
 } from 'obsidian';
-import { GALLERY_VIEW_TYPE, SUPPORTED_IMAGE_EXTENSIONS } from './constants';
-import { FolderSuggestModal } from './folder-suggest';
+import {
+	ASSET_ROOT_FOLDER,
+	FILE_PICKER_ACCEPT,
+	GALLERY_VIEW_TYPE,
+	SUPPORTED_IMAGE_EXTENSIONS,
+} from './constants';
 import {
 	GalleryAlbum,
 	GalleryDocument,
-	createAlbumId,
+	GalleryImage,
+	createGalleryAlbum,
 	createGalleryDocument,
+	createGalleryImage,
+	isGalleryDocumentV2,
 	parseGalleryDocument,
 	serializeGalleryDocument,
+	sortImages,
 } from './model';
 import type AlbumGalleryPlugin from './main';
+import type { GalleryDefaultTab } from './settings';
+
+interface GalleryImageReference {
+	albumId: string;
+	albumName: string;
+	image: GalleryImage;
+}
 
 export class AlbumGalleryView extends TextFileView {
 	private readonly plugin: AlbumGalleryPlugin;
 	private document: GalleryDocument = createGalleryDocument('Untitled gallery');
 	private activeAlbumId: string | null = null;
+	private activeTab: GalleryDefaultTab;
 	private observer: IntersectionObserver | null = null;
 	private refreshTimer: number | null = null;
-	private readonly assetCache = new Map<string, TFile[]>();
+	private importingAlbumId: string | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: AlbumGalleryPlugin) {
 		super(leaf);
 		this.plugin = plugin;
+		this.activeTab = plugin.settings.defaultTab;
 	}
 
 	getViewType(): string {
@@ -53,14 +72,25 @@ export class AlbumGalleryView extends TextFileView {
 		if (clear) {
 			this.clear();
 		}
+
 		this.data = data;
-		this.document = parseGalleryDocument(data, this.file?.basename ?? 'Untitled gallery');
+		const fallbackTitle = this.file?.basename ?? 'Untitled gallery';
+		this.document = parseGalleryDocument(data, fallbackTitle);
+
+		let shouldSave = !isGalleryDocumentV2(data);
+		if (this.file && this.document.title !== this.file.basename) {
+			this.document.title = this.file.basename;
+			shouldSave = true;
+		}
+
 		this.render();
+		if (shouldSave) {
+			window.setTimeout(() => this.requestSave(), 0);
+		}
 	}
 
 	clear(): void {
 		this.disconnectObserver();
-		this.assetCache.clear();
 		this.contentEl.empty();
 	}
 
@@ -74,14 +104,16 @@ export class AlbumGalleryView extends TextFileView {
 	}
 
 	requestVaultRefresh(): void {
-		this.assetCache.clear();
+		if (this.importingAlbumId) {
+			return;
+		}
 		if (this.refreshTimer !== null) {
 			window.clearTimeout(this.refreshTimer);
 		}
 		this.refreshTimer = window.setTimeout(() => {
 			this.refreshTimer = null;
 			this.render();
-		}, 150);
+		}, 180);
 	}
 
 	private render(): void {
@@ -99,156 +131,186 @@ export class AlbumGalleryView extends TextFileView {
 		}
 
 		this.activeAlbumId = null;
-		this.renderAlbumOverview();
+		this.renderLibrary();
 	}
 
-	private renderAlbumOverview(): void {
-		const header = this.contentEl.createDiv({ cls: 'album-gallery-header' });
-		const heading = header.createDiv({ cls: 'album-gallery-heading' });
-		heading.createEl('h2', { text: this.document.title });
-		heading.createDiv({
-			cls: 'album-gallery-subtitle',
-			text: `${this.document.albums.length} ${this.document.albums.length === 1 ? 'album' : 'albums'}`,
+	private renderLibrary(): void {
+		const allImages = this.getAllImages();
+		const header = this.contentEl.createDiv({ cls: 'album-gallery-library-header' });
+		const titleGroup = header.createDiv({ cls: 'album-gallery-title-group' });
+		titleGroup.createEl('h1', { text: this.document.title });
+		titleGroup.createDiv({
+			cls: 'album-gallery-library-summary',
+			text: `${allImages.length} ${allImages.length === 1 ? 'photo' : 'photos'} · ${this.document.albums.length} ${this.document.albums.length === 1 ? 'album' : 'albums'}`,
 		});
 
-		const addButton = header.createEl('button', {
-			cls: 'mod-cta album-gallery-action-button',
+		const createButton = header.createEl('button', {
+			cls: 'album-gallery-round-button mod-cta',
+			attr: { type: 'button', 'aria-label': 'Create album' },
+		});
+		setIcon(createButton, 'folder-plus');
+		createButton.addEventListener('click', () => this.openCreateAlbumModal());
+
+		this.renderTabBar();
+		if (this.activeTab === 'photos') {
+			this.renderAllPhotos(allImages);
+		} else {
+			this.renderAlbums();
+		}
+	}
+
+	private renderTabBar(): void {
+		const tabBar = this.contentEl.createDiv({ cls: 'album-gallery-tab-bar' });
+		this.renderTabButton(tabBar, 'photos', 'Photos');
+		this.renderTabButton(tabBar, 'albums', 'Albums');
+	}
+
+	private renderTabButton(container: HTMLElement, tab: GalleryDefaultTab, label: string): void {
+		const button = container.createEl('button', {
+			cls: `album-gallery-tab${this.activeTab === tab ? ' is-active' : ''}`,
+			text: label,
 			attr: { type: 'button' },
 		});
-		setIcon(addButton, 'folder-plus');
-		addButton.createSpan({ text: 'Add album' });
-		addButton.addEventListener('click', () => this.openFolderPicker());
+		button.addEventListener('click', () => {
+			this.activeTab = tab;
+			this.render();
+		});
+	}
 
-		if (this.document.albums.length === 0) {
-			const empty = this.contentEl.createDiv({ cls: 'album-gallery-empty' });
-			const icon = empty.createDiv({ cls: 'album-gallery-empty-icon' });
-			setIcon(icon, 'images');
-			empty.createEl('h3', { text: 'No albums yet' });
-			empty.createEl('p', {
-				text: 'Add a folder. The folder stays in your vault and appears here as an album.',
-			});
-			const emptyButton = empty.createEl('button', {
-				cls: 'mod-cta',
-				text: 'Choose a folder',
-				attr: { type: 'button' },
-			});
-			emptyButton.addEventListener('click', () => this.openFolderPicker());
+	private renderAllPhotos(references: GalleryImageReference[]): void {
+		if (references.length === 0) {
+			this.renderEmptyState(
+				'images',
+				'No photos yet',
+				'Create an album, then choose photos. Album Gallery stores them automatically inside the vault.',
+				'Create album',
+				() => this.openCreateAlbumModal(),
+			);
 			return;
 		}
 
-		const grid = this.contentEl.createDiv({ cls: 'album-gallery-album-grid' });
+		const section = this.contentEl.createDiv({ cls: 'album-gallery-section' });
+		const sectionHeader = section.createDiv({ cls: 'album-gallery-section-heading' });
+		sectionHeader.createEl('h2', { text: 'All Photos' });
+		sectionHeader.createDiv({ cls: 'album-gallery-section-count', text: `${references.length}` });
+		this.renderPhotoGrid(section, references);
+	}
+
+	private renderAlbums(): void {
+		if (this.document.albums.length === 0) {
+			this.renderEmptyState(
+				'folder-heart',
+				'No albums yet',
+				'Create an album and add photos directly from your iPhone. No folder setup is required.',
+				'New album',
+				() => this.openCreateAlbumModal(),
+			);
+			return;
+		}
+
+		const section = this.contentEl.createDiv({ cls: 'album-gallery-section' });
+		const sectionHeader = section.createDiv({ cls: 'album-gallery-section-heading' });
+		sectionHeader.createEl('h2', { text: 'My Albums' });
+		sectionHeader.createDiv({
+			cls: 'album-gallery-section-count',
+			text: `${this.document.albums.length}`,
+		});
+
+		const grid = section.createDiv({ cls: 'album-gallery-album-grid' });
 		for (const album of this.document.albums) {
 			this.renderAlbumCard(grid, album);
 		}
 	}
 
 	private renderAlbumCard(container: HTMLElement, album: GalleryAlbum): void {
-		const folder = this.app.vault.getFolderByPath(album.folderPath);
-		const images = folder ? this.getAlbumImages(folder) : [];
-		const card = container.createDiv({ cls: 'album-gallery-album-card' });
-		card.setAttr('role', 'button');
-		card.setAttr('tabindex', '0');
-
-		const media = card.createDiv({ cls: 'album-gallery-album-cover' });
-		const cover = this.resolveCover(album, images);
+		const card = container.createEl('button', {
+			cls: 'album-gallery-album-card',
+			attr: { type: 'button', 'aria-label': `Open ${album.name}` },
+		});
+		const coverArea = card.createDiv({ cls: 'album-gallery-album-cover' });
+		const cover = this.getAlbumCover(album);
 		if (cover) {
-			const image = media.createEl('img', {
-				attr: {
-					alt: '',
-					loading: 'lazy',
-					decoding: 'async',
-				},
-			});
-			image.src = this.app.vault.getResourcePath(cover);
+			this.renderImageElement(coverArea, cover, '');
 		} else {
-			const icon = media.createDiv({ cls: 'album-gallery-cover-placeholder' });
-			setIcon(icon, folder ? 'image-off' : 'folder-x');
+			const placeholder = coverArea.createDiv({ cls: 'album-gallery-cover-placeholder' });
+			setIcon(placeholder, 'images');
 		}
 
-		const overlay = media.createDiv({ cls: 'album-gallery-card-overlay' });
-		const removeButton = overlay.createEl('button', {
-			cls: 'clickable-icon',
-			attr: {
-				type: 'button',
-				'aria-label': `Remove ${album.name} from gallery`,
-			},
-		});
-		setIcon(removeButton, 'trash-2');
-		removeButton.addEventListener('click', (event) => {
-			event.stopPropagation();
-			new RemoveAlbumModal(this.app, album.name, () => this.removeAlbum(album.id)).open();
+		const details = card.createDiv({ cls: 'album-gallery-album-details' });
+		details.createEl('h3', { text: album.name });
+		details.createDiv({
+			cls: 'album-gallery-album-count',
+			text: `${album.images.length} ${album.images.length === 1 ? 'photo' : 'photos'}`,
 		});
 
-		const body = card.createDiv({ cls: 'album-gallery-album-body' });
-		body.createEl('h3', { text: album.name });
-		body.createDiv({
-			cls: 'album-gallery-album-meta',
-			text: folder
-				? `${images.length} ${images.length === 1 ? 'image' : 'images'}`
-				: 'Folder not found',
-		});
-		body.createDiv({ cls: 'album-gallery-album-path', text: album.folderPath });
-
-		const open = (): void => {
-			if (!folder) {
-				new Notice(`Folder not found: ${album.folderPath}`);
-				return;
-			}
+		card.addEventListener('click', () => {
 			this.activeAlbumId = album.id;
 			this.render();
-		};
-		card.addEventListener('click', open);
-		card.addEventListener('keydown', (event) => {
-			if (event.key === 'Enter' || event.key === ' ') {
-				event.preventDefault();
-				open();
-			}
 		});
 	}
 
 	private renderAlbum(album: GalleryAlbum): void {
-		const folder = this.app.vault.getFolderByPath(album.folderPath);
-		const header = this.contentEl.createDiv({ cls: 'album-gallery-header album-gallery-album-header' });
-		const titleRow = header.createDiv({ cls: 'album-gallery-title-row' });
-		const backButton = titleRow.createEl('button', {
-			cls: 'clickable-icon',
-			attr: { type: 'button', 'aria-label': 'Back to albums' },
+		const references = this.getAlbumReferences(album);
+		const header = this.contentEl.createDiv({ cls: 'album-gallery-album-header' });
+		const leading = header.createDiv({ cls: 'album-gallery-album-leading' });
+		const backButton = leading.createEl('button', {
+			cls: 'clickable-icon album-gallery-back-button',
+			attr: { type: 'button', 'aria-label': 'Back to library' },
 		});
-		setIcon(backButton, 'arrow-left');
+		setIcon(backButton, 'chevron-left');
 		backButton.addEventListener('click', () => {
 			this.activeAlbumId = null;
+			this.activeTab = 'albums';
 			this.render();
 		});
 
-		const heading = titleRow.createDiv({ cls: 'album-gallery-heading' });
-		heading.createEl('h2', { text: album.name });
-		heading.createDiv({ cls: 'album-gallery-subtitle', text: album.folderPath });
-
-		if (!folder) {
-			const missing = this.contentEl.createDiv({ cls: 'album-gallery-empty' });
-			const icon = missing.createDiv({ cls: 'album-gallery-empty-icon' });
-			setIcon(icon, 'folder-x');
-			missing.createEl('h3', { text: 'Folder not found' });
-			missing.createEl('p', { text: 'The folder may have been renamed, moved, or deleted.' });
-			return;
-		}
-
-		const images = this.getAlbumImages(folder);
-		heading.createDiv({
-			cls: 'album-gallery-count',
-			text: `${images.length} ${images.length === 1 ? 'image' : 'images'}`,
+		const titleGroup = leading.createDiv({ cls: 'album-gallery-title-group' });
+		titleGroup.createEl('h1', { text: album.name });
+		titleGroup.createDiv({
+			cls: 'album-gallery-library-summary',
+			text: `${album.images.length} ${album.images.length === 1 ? 'photo' : 'photos'}`,
 		});
 
-		if (images.length === 0) {
-			const empty = this.contentEl.createDiv({ cls: 'album-gallery-empty' });
-			const icon = empty.createDiv({ cls: 'album-gallery-empty-icon' });
-			setIcon(icon, 'image-off');
-			empty.createEl('h3', { text: 'This album is empty' });
-			empty.createEl('p', { text: 'Add supported image files to the folder and they will appear automatically.' });
+		const actions = header.createDiv({ cls: 'album-gallery-album-actions' });
+		const addButton = actions.createEl('button', {
+			cls: 'album-gallery-add-photos-button mod-cta',
+			attr: { type: 'button' },
+		});
+		setIcon(addButton, 'image-plus');
+		addButton.createSpan({ text: 'Add photos' });
+		addButton.addEventListener('click', () => this.openPhotoPicker(album.id));
+
+		const menuButton = actions.createEl('button', {
+			cls: 'clickable-icon',
+			attr: { type: 'button', 'aria-label': 'Album options' },
+		});
+		setIcon(menuButton, 'ellipsis');
+		menuButton.addEventListener('click', (event) => this.openAlbumMenu(event, album));
+
+		if (this.importingAlbumId === album.id) {
+			const importing = this.contentEl.createDiv({ cls: 'album-gallery-importing' });
+			const spinner = importing.createDiv({ cls: 'album-gallery-spinner' });
+			setIcon(spinner, 'loader-circle');
+			importing.createSpan({ text: 'Importing photos…' });
+		}
+
+		if (references.length === 0) {
+			this.renderEmptyState(
+				'image-plus',
+				'Add photos to this album',
+				'Choose one or many photos. The plugin creates and manages the storage folder automatically.',
+				'Choose photos',
+				() => this.openPhotoPicker(album.id),
+			);
 			return;
 		}
 
-		const grid = this.contentEl.createDiv({ cls: 'album-gallery-image-grid' });
+		const section = this.contentEl.createDiv({ cls: 'album-gallery-section album-gallery-album-section' });
+		this.renderPhotoGrid(section, references);
+	}
+
+	private renderPhotoGrid(container: HTMLElement, references: GalleryImageReference[]): void {
+		const grid = container.createDiv({ cls: 'album-gallery-photo-grid' });
 		grid.setCssProps({
 			'--album-gallery-thumbnail-size': `${this.document.layout.thumbnailSize}px`,
 			'--album-gallery-gap': `${this.document.layout.gap}px`,
@@ -256,130 +318,391 @@ export class AlbumGalleryView extends TextFileView {
 
 		let renderedCount = 0;
 		const appendBatch = (): void => {
-			const end = Math.min(renderedCount + this.plugin.settings.batchSize, images.length);
+			const end = Math.min(renderedCount + this.plugin.settings.batchSize, references.length);
 			for (let index = renderedCount; index < end; index += 1) {
-				const file = images[index];
-				if (file) {
-					this.renderImageCard(grid, file, images, index);
+				const reference = references[index];
+				if (reference) {
+					this.renderPhotoCard(grid, reference, references, index);
 				}
 			}
 			renderedCount = end;
 		};
 
 		appendBatch();
-		if (renderedCount >= images.length) {
+		if (renderedCount >= references.length) {
 			return;
 		}
 
-		const sentinel = this.contentEl.createDiv({ cls: 'album-gallery-load-sentinel', text: 'Loading more images…' });
+		const sentinel = container.createDiv({
+			cls: 'album-gallery-load-sentinel',
+			text: 'Loading more photos…',
+		});
 		this.observer = new IntersectionObserver((entries) => {
 			if (!entries.some((entry) => entry.isIntersecting)) {
 				return;
 			}
 			appendBatch();
-			if (renderedCount >= images.length) {
+			if (renderedCount >= references.length) {
 				this.disconnectObserver();
 				sentinel.remove();
 			}
-		}, { root: this.contentEl, rootMargin: '600px' });
+		}, { root: this.contentEl, rootMargin: '700px' });
 		this.observer.observe(sentinel);
 	}
 
-	private renderImageCard(container: HTMLElement, file: TFile, images: TFile[], index: number): void {
+	private renderPhotoCard(
+		container: HTMLElement,
+		reference: GalleryImageReference,
+		references: GalleryImageReference[],
+		index: number,
+	): void {
 		const button = container.createEl('button', {
-			cls: 'album-gallery-image-card',
-			attr: {
-				type: 'button',
-				'aria-label': `Open ${file.basename}`,
-			},
+			cls: 'album-gallery-photo-card',
+			attr: { type: 'button', 'aria-label': `Open ${reference.image.name}` },
 		});
-		const image = button.createEl('img', {
-			attr: {
-				alt: file.basename,
-				loading: 'lazy',
-				decoding: 'async',
-			},
+		this.renderImageElement(button, reference.image, reference.image.name);
+		button.addEventListener('click', () => {
+			new ImageLightboxModal(
+				this.app,
+				references,
+				index,
+				(item) => this.confirmDeleteImage(item),
+			).open();
 		});
-		image.src = this.app.vault.getResourcePath(file);
-		button.addEventListener('click', () => new ImageLightboxModal(this.app, images, index).open());
 	}
 
-	private openFolderPicker(): void {
-		const excludedPaths = new Set(this.document.albums.map((album) => album.folderPath));
-		new FolderSuggestModal(this.app, excludedPaths, (folder) => {
-			this.addAlbum(folder);
-		}).open();
-	}
-
-	private addAlbum(folder: TFolder): void {
-		if (this.document.albums.some((album) => album.folderPath === folder.path)) {
-			new Notice('That folder is already in this gallery.');
+	private renderImageElement(container: HTMLElement, image: GalleryImage, alt: string): void {
+		const file = this.app.vault.getFileByPath(image.path);
+		if (!file) {
+			const placeholder = container.createDiv({ cls: 'album-gallery-missing-photo' });
+			setIcon(placeholder, 'image-off');
 			return;
 		}
 
-		this.document.albums.push({
-			id: createAlbumId(),
-			name: folder.path === '/' || folder.path === '' ? 'Vault root' : folder.name,
-			folderPath: folder.path,
-			createdAt: Date.now(),
+		const element = container.createEl('img', {
+			attr: { alt, loading: 'lazy', decoding: 'async' },
 		});
-		this.requestSave();
-		this.assetCache.delete(folder.path);
-		this.render();
+		element.src = this.app.vault.getResourcePath(file);
+		element.addEventListener('error', () => {
+			element.addClass('is-broken');
+		});
 	}
 
-	private removeAlbum(albumId: string): void {
-		this.document.albums = this.document.albums.filter((album) => album.id !== albumId);
-		if (this.activeAlbumId === albumId) {
-			this.activeAlbumId = null;
-		}
-		this.requestSave();
-		this.render();
+	private renderEmptyState(
+		iconName: string,
+		title: string,
+		description: string,
+		buttonText: string,
+		onClick: () => void,
+	): void {
+		const empty = this.contentEl.createDiv({ cls: 'album-gallery-empty' });
+		const icon = empty.createDiv({ cls: 'album-gallery-empty-icon' });
+		setIcon(icon, iconName);
+		empty.createEl('h2', { text: title });
+		empty.createEl('p', { text: description });
+		const button = empty.createEl('button', {
+			cls: 'mod-cta album-gallery-empty-button',
+			text: buttonText,
+			attr: { type: 'button' },
+		});
+		button.addEventListener('click', onClick);
 	}
 
-	private getAlbumImages(folder: TFolder): TFile[] {
-		const cached = this.assetCache.get(folder.path);
-		if (cached) {
-			return cached;
+	private openCreateAlbumModal(): void {
+		new AlbumNameModal(this.app, {
+			title: 'New album',
+			submitText: 'Create',
+			onSubmit: (name) => {
+				const album = createGalleryAlbum(name);
+				this.document.albums.unshift(album);
+				this.activeAlbumId = album.id;
+				this.activeTab = 'albums';
+				this.requestSave();
+				this.render();
+			},
+		}).open();
+	}
+
+	private openRenameAlbumModal(album: GalleryAlbum): void {
+		new AlbumNameModal(this.app, {
+			title: 'Rename album',
+			initialValue: album.name,
+			submitText: 'Save',
+			onSubmit: (name) => {
+				album.name = name;
+				album.updatedAt = Date.now();
+				this.requestSave();
+				this.render();
+			},
+		}).open();
+	}
+
+	private openAlbumMenu(event: MouseEvent, album: GalleryAlbum): void {
+		const menu = new Menu();
+		menu.addItem((item) => item
+			.setTitle('Add photos')
+			.setIcon('image-plus')
+			.onClick(() => this.openPhotoPicker(album.id)));
+		menu.addItem((item) => item
+			.setTitle('Rename album')
+			.setIcon('pencil')
+			.onClick(() => this.openRenameAlbumModal(album)));
+		menu.addSeparator();
+		menu.addItem((item) => item
+			.setTitle('Delete album')
+			.setIcon('trash-2')
+			.onClick(() => this.confirmDeleteAlbum(album)));
+		menu.showAtMouseEvent(event);
+	}
+
+	private openPhotoPicker(albumId: string): void {
+		if (this.importingAlbumId) {
+			new Notice('Please wait for the current import to finish.');
+			return;
 		}
 
-		const images: TFile[] = [];
-		const visit = (current: TFolder): void => {
-			for (const child of current.children) {
-				if (child instanceof TFile && SUPPORTED_IMAGE_EXTENSIONS.has(child.extension.toLowerCase())) {
-					images.push(child);
-				} else if (this.plugin.settings.includeSubfolders && child instanceof TFolder) {
-					visit(child);
+		const input = this.contentEl.ownerDocument.createElement('input');
+		input.type = 'file';
+		input.accept = FILE_PICKER_ACCEPT;
+		input.multiple = true;
+		input.addClass('album-gallery-file-input');
+		this.contentEl.ownerDocument.body.appendChild(input);
+
+		input.addEventListener('change', () => {
+			const files = Array.from(input.files ?? []);
+			input.remove();
+			if (files.length > 0) {
+				void this.importPhotos(albumId, files);
+			}
+		}, { once: true });
+
+		input.click();
+	}
+
+	private async importPhotos(albumId: string, files: File[]): Promise<void> {
+		const album = this.document.albums.find((item) => item.id === albumId);
+		if (!album) {
+			new Notice('Album no longer exists.');
+			return;
+		}
+
+		const accepted = files.filter((file) => this.isSupportedImageFile(file));
+		if (accepted.length === 0) {
+			new Notice('No supported image files were selected.');
+			return;
+		}
+
+		this.importingAlbumId = albumId;
+		this.render();
+		new Notice(`Importing ${accepted.length} ${accepted.length === 1 ? 'photo' : 'photos'}…`);
+
+		let imported = 0;
+		let failed = 0;
+		try {
+			const albumFolder = normalizePath(`${ASSET_ROOT_FOLDER}/${this.document.id}/${album.id}`);
+			await this.ensureFolder(albumFolder);
+
+			for (let index = 0; index < accepted.length; index += 1) {
+				const source = accepted[index];
+				if (!source) {
+					continue;
+				}
+				try {
+					const filename = this.createSafeFilename(source, albumFolder);
+					const path = normalizePath(`${albumFolder}/${filename}`);
+					const data = await source.arrayBuffer();
+					await this.app.vault.createBinary(path, data);
+					album.images.push(createGalleryImage(path, source.name || filename, Date.now() + index));
+					imported += 1;
+				} catch (error) {
+					console.error('Album Gallery failed to import a photo', error);
+					failed += 1;
 				}
 			}
-		};
-		visit(folder);
 
-		images.sort((left, right) => {
-			switch (this.document.layout.sort) {
-				case 'name-asc':
-					return left.name.localeCompare(right.name);
-				case 'name-desc':
-					return right.name.localeCompare(left.name);
-				case 'modified-asc':
-					return left.stat.mtime - right.stat.mtime;
-				case 'modified-desc':
-					return right.stat.mtime - left.stat.mtime;
-			}
-		});
+			album.images = sortImages(album.images, this.document.layout.sort);
+			album.updatedAt = Date.now();
+			this.requestSave();
+		} finally {
+			this.importingAlbumId = null;
+			this.render();
+		}
 
-		this.assetCache.set(folder.path, images);
-		return images;
+		if (imported > 0) {
+			new Notice(`${imported} ${imported === 1 ? 'photo' : 'photos'} added to ${album.name}.`);
+		}
+		if (failed > 0) {
+			new Notice(`${failed} ${failed === 1 ? 'photo could' : 'photos could'} not be imported.`);
+		}
 	}
 
-	private resolveCover(album: GalleryAlbum, images: TFile[]): TFile | null {
-		if (album.coverPath) {
-			const cover = this.app.vault.getFileByPath(album.coverPath);
+	private isSupportedImageFile(file: File): boolean {
+		if (file.type.toLowerCase().startsWith('image/')) {
+			return true;
+		}
+		const extension = this.getExtension(file.name);
+		return extension !== null && SUPPORTED_IMAGE_EXTENSIONS.has(extension);
+	}
+
+	private createSafeFilename(file: File, folderPath: string): string {
+		const original = file.name.trim() || `Photo ${Date.now()}`;
+		const extension = this.getExtension(original) ?? this.extensionFromMime(file.type) ?? 'jpg';
+		const withoutExtension = original.replace(new RegExp(`\\.${extension}$`, 'i'), '');
+		const safeBase = withoutExtension
+			.replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-')
+			.replace(/\s+/g, ' ')
+			.replace(/^\.+|\.+$/g, '')
+			.trim()
+			.slice(0, 120) || 'Photo';
+
+		let suffix = 0;
+		while (true) {
+			const filename = suffix === 0
+				? `${safeBase}.${extension.toLowerCase()}`
+				: `${safeBase} ${suffix + 1}.${extension.toLowerCase()}`;
+			const candidate = normalizePath(`${folderPath}/${filename}`);
+			if (!this.app.vault.getAbstractFileByPath(candidate)) {
+				return filename;
+			}
+			suffix += 1;
+		}
+	}
+
+	private getExtension(filename: string): string | null {
+		const match = filename.toLowerCase().match(/\.([a-z0-9]+)$/);
+		return match?.[1] ?? null;
+	}
+
+	private extensionFromMime(mime: string): string | null {
+		const normalized = mime.toLowerCase();
+		const mapping: Record<string, string> = {
+			'image/avif': 'avif',
+			'image/bmp': 'bmp',
+			'image/gif': 'gif',
+			'image/heic': 'heic',
+			'image/heif': 'heif',
+			'image/jpeg': 'jpg',
+			'image/png': 'png',
+			'image/svg+xml': 'svg',
+			'image/tiff': 'tiff',
+			'image/webp': 'webp',
+		};
+		return mapping[normalized] ?? null;
+	}
+
+	private async ensureFolder(path: string): Promise<void> {
+		const normalized = normalizePath(path);
+		const parts = normalized.split('/').filter(Boolean);
+		let current = '';
+		for (const part of parts) {
+			current = current ? `${current}/${part}` : part;
+			const existing = this.app.vault.getAbstractFileByPath(current);
+			if (!existing) {
+				await this.app.vault.createFolder(current);
+			} else if (!(existing instanceof TFolder)) {
+				throw new Error(`Cannot create folder because a file exists at ${current}`);
+			}
+		}
+	}
+
+	private confirmDeleteImage(reference: GalleryImageReference): void {
+		new ConfirmActionModal(this.app, {
+			title: 'Delete photo?',
+			description: `“${reference.image.name}” will be moved to the trash and removed from this album.`,
+			confirmText: 'Delete photo',
+			onConfirm: async () => this.deleteImage(reference),
+		}).open();
+	}
+
+	private async deleteImage(reference: GalleryImageReference): Promise<void> {
+		const album = this.document.albums.find((item) => item.id === reference.albumId);
+		if (!album) {
+			return;
+		}
+
+		const file = this.app.vault.getFileByPath(reference.image.path);
+		if (file) {
+			try {
+				await this.app.fileManager.trashFile(file);
+			} catch (error) {
+				console.error('Album Gallery failed to trash a photo', error);
+				new Notice('The photo could not be moved to the trash.');
+				return;
+			}
+		}
+
+		album.images = album.images.filter((image) => image.id !== reference.image.id);
+		if (album.coverImageId === reference.image.id) {
+			delete album.coverImageId;
+		}
+		album.updatedAt = Date.now();
+		this.requestSave();
+		this.render();
+		new Notice('Photo deleted.');
+	}
+
+	private confirmDeleteAlbum(album: GalleryAlbum): void {
+		new ConfirmActionModal(this.app, {
+			title: 'Delete album?',
+			description: `“${album.name}” and its ${album.images.length} ${album.images.length === 1 ? 'photo' : 'photos'} will be moved to the trash.`,
+			confirmText: 'Delete album',
+			onConfirm: async () => this.deleteAlbum(album),
+		}).open();
+	}
+
+	private async deleteAlbum(album: GalleryAlbum): Promise<void> {
+		const folderPath = normalizePath(`${ASSET_ROOT_FOLDER}/${this.document.id}/${album.id}`);
+		const folder = this.app.vault.getAbstractFileByPath(folderPath);
+		if (folder) {
+			try {
+				await this.app.fileManager.trashFile(folder);
+			} catch (error) {
+				console.error('Album Gallery failed to trash an album folder', error);
+				new Notice('The album folder could not be moved to the trash.');
+				return;
+			}
+		}
+
+		this.document.albums = this.document.albums.filter((item) => item.id !== album.id);
+		this.activeAlbumId = null;
+		this.activeTab = 'albums';
+		this.requestSave();
+		this.render();
+		new Notice('Album deleted.');
+	}
+
+	private getAllImages(): GalleryImageReference[] {
+		const references = this.document.albums.flatMap((album) => this.getAlbumReferences(album));
+		return references.sort((left, right) => {
+			switch (this.document.layout.sort) {
+				case 'name-asc':
+					return left.image.name.localeCompare(right.image.name);
+				case 'name-desc':
+					return right.image.name.localeCompare(left.image.name);
+				case 'added-asc':
+					return left.image.addedAt - right.image.addedAt;
+				case 'added-desc':
+					return right.image.addedAt - left.image.addedAt;
+			}
+		});
+	}
+
+	private getAlbumReferences(album: GalleryAlbum): GalleryImageReference[] {
+		return sortImages(album.images, this.document.layout.sort).map((image) => ({
+			albumId: album.id,
+			albumName: album.name,
+			image,
+		}));
+	}
+
+	private getAlbumCover(album: GalleryAlbum): GalleryImage | null {
+		if (album.coverImageId) {
+			const cover = album.images.find((image) => image.id === album.coverImageId);
 			if (cover) {
 				return cover;
 			}
 		}
-		return images[0] ?? null;
+		return sortImages(album.images, 'added-desc')[0] ?? null;
 	}
 
 	private disconnectObserver(): void {
@@ -388,31 +711,106 @@ export class AlbumGalleryView extends TextFileView {
 	}
 }
 
-class RemoveAlbumModal extends Modal {
-	private readonly albumName: string;
-	private readonly onConfirm: () => void;
+interface AlbumNameModalOptions {
+	title: string;
+	initialValue?: string;
+	submitText: string;
+	onSubmit: (name: string) => void;
+}
 
-	constructor(app: App, albumName: string, onConfirm: () => void) {
+class AlbumNameModal extends Modal {
+	private readonly options: AlbumNameModalOptions;
+
+	constructor(app: App, options: AlbumNameModalOptions) {
 		super(app);
-		this.albumName = albumName;
-		this.onConfirm = onConfirm;
+		this.options = options;
 	}
 
 	onOpen(): void {
-		this.contentEl.createEl('h2', { text: 'Remove album?' });
-		this.contentEl.createEl('p', {
-			text: `“${this.albumName}” will be removed from this gallery. The folder and its images will not be deleted.`,
+		this.contentEl.addClass('album-gallery-name-modal');
+		this.contentEl.createEl('h2', { text: this.options.title });
+		const input = this.contentEl.createEl('input', {
+			cls: 'album-gallery-name-input',
+			attr: {
+				type: 'text',
+				placeholder: 'Album name',
+				maxlength: '80',
+			},
 		});
+		input.value = this.options.initialValue ?? '';
+
+		const error = this.contentEl.createDiv({ cls: 'album-gallery-name-error' });
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
-		const cancel = actions.createEl('button', { text: 'Cancel', attr: { type: 'button' } });
-		cancel.addEventListener('click', () => this.close());
-		const remove = actions.createEl('button', {
-			cls: 'mod-warning',
-			text: 'Remove album',
+		actions.createEl('button', {
+			text: 'Cancel',
+			attr: { type: 'button' },
+		}).addEventListener('click', () => this.close());
+		const submit = actions.createEl('button', {
+			cls: 'mod-cta',
+			text: this.options.submitText,
 			attr: { type: 'button' },
 		});
-		remove.addEventListener('click', () => {
-			this.onConfirm();
+
+		const finish = (): void => {
+			const name = input.value.trim();
+			if (!name) {
+				error.setText('Enter an album name.');
+				input.focus();
+				return;
+			}
+			this.options.onSubmit(name);
+			this.close();
+		};
+
+		submit.addEventListener('click', finish);
+		input.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				finish();
+			}
+		});
+		window.setTimeout(() => {
+			input.focus();
+			input.select();
+		}, 0);
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
+interface ConfirmActionOptions {
+	title: string;
+	description: string;
+	confirmText: string;
+	onConfirm: () => Promise<void> | void;
+}
+
+class ConfirmActionModal extends Modal {
+	private readonly options: ConfirmActionOptions;
+
+	constructor(app: App, options: ConfirmActionOptions) {
+		super(app);
+		this.options = options;
+	}
+
+	onOpen(): void {
+		this.contentEl.createEl('h2', { text: this.options.title });
+		this.contentEl.createEl('p', { text: this.options.description });
+		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
+		actions.createEl('button', {
+			text: 'Cancel',
+			attr: { type: 'button' },
+		}).addEventListener('click', () => this.close());
+		const confirm = actions.createEl('button', {
+			cls: 'mod-warning',
+			text: this.options.confirmText,
+			attr: { type: 'button' },
+		});
+		confirm.addEventListener('click', async () => {
+			confirm.disabled = true;
+			await this.options.onConfirm();
 			this.close();
 		});
 	}
@@ -423,37 +821,73 @@ class RemoveAlbumModal extends Modal {
 }
 
 class ImageLightboxModal extends Modal {
-	private readonly images: TFile[];
+	private references: GalleryImageReference[];
 	private index: number;
+	private readonly onRequestDelete: (reference: GalleryImageReference) => void;
 	private imageElement: HTMLImageElement | null = null;
-	private captionElement: HTMLElement | null = null;
-	private counterElement: HTMLElement | null = null;
+	private titleElement: HTMLElement | null = null;
+	private subtitleElement: HTMLElement | null = null;
+	private touchStartX: number | null = null;
 
-	constructor(app: App, images: TFile[], index: number) {
+	constructor(
+		app: App,
+		references: GalleryImageReference[],
+		index: number,
+		onRequestDelete: (reference: GalleryImageReference) => void,
+	) {
 		super(app);
-		this.images = images;
+		this.references = [...references];
 		this.index = index;
+		this.onRequestDelete = onRequestDelete;
 	}
 
 	onOpen(): void {
 		this.modalEl.addClass('album-gallery-lightbox-modal');
 		const shell = this.contentEl.createDiv({ cls: 'album-gallery-lightbox' });
-		const previous = shell.createEl('button', {
+		const toolbar = shell.createDiv({ cls: 'album-gallery-lightbox-toolbar' });
+		const titleGroup = toolbar.createDiv({ cls: 'album-gallery-lightbox-title-group' });
+		this.titleElement = titleGroup.createDiv({ cls: 'album-gallery-lightbox-title' });
+		this.subtitleElement = titleGroup.createDiv({ cls: 'album-gallery-lightbox-subtitle' });
+		const deleteButton = toolbar.createEl('button', {
+			cls: 'clickable-icon album-gallery-lightbox-delete',
+			attr: { type: 'button', 'aria-label': 'Delete photo' },
+		});
+		setIcon(deleteButton, 'trash-2');
+		deleteButton.addEventListener('click', () => {
+			const reference = this.references[this.index];
+			if (reference) {
+				this.close();
+				this.onRequestDelete(reference);
+			}
+		});
+
+		const stage = shell.createDiv({ cls: 'album-gallery-lightbox-stage' });
+		const previous = stage.createEl('button', {
 			cls: 'clickable-icon album-gallery-lightbox-nav album-gallery-lightbox-previous',
-			attr: { type: 'button', 'aria-label': 'Previous image' },
+			attr: { type: 'button', 'aria-label': 'Previous photo' },
 		});
 		setIcon(previous, 'chevron-left');
 		previous.addEventListener('click', () => this.move(-1));
 
-		const stage = shell.createDiv({ cls: 'album-gallery-lightbox-stage' });
 		this.imageElement = stage.createEl('img', { attr: { alt: '' } });
-		const details = stage.createDiv({ cls: 'album-gallery-lightbox-details' });
-		this.captionElement = details.createDiv({ cls: 'album-gallery-lightbox-caption' });
-		this.counterElement = details.createDiv({ cls: 'album-gallery-lightbox-counter' });
+		this.imageElement.addEventListener('touchstart', (event) => {
+			this.touchStartX = event.changedTouches[0]?.clientX ?? null;
+		}, { passive: true });
+		this.imageElement.addEventListener('touchend', (event) => {
+			const endX = event.changedTouches[0]?.clientX;
+			if (this.touchStartX === null || endX === undefined) {
+				return;
+			}
+			const delta = endX - this.touchStartX;
+			this.touchStartX = null;
+			if (Math.abs(delta) >= 50) {
+				this.move(delta > 0 ? -1 : 1);
+			}
+		}, { passive: true });
 
-		const next = shell.createEl('button', {
+		const next = stage.createEl('button', {
 			cls: 'clickable-icon album-gallery-lightbox-nav album-gallery-lightbox-next',
-			attr: { type: 'button', 'aria-label': 'Next image' },
+			attr: { type: 'button', 'aria-label': 'Next photo' },
 		});
 		setIcon(next, 'chevron-right');
 		next.addEventListener('click', () => this.move(1));
@@ -472,27 +906,32 @@ class ImageLightboxModal extends Modal {
 
 	onClose(): void {
 		this.imageElement = null;
-		this.captionElement = null;
-		this.counterElement = null;
+		this.titleElement = null;
+		this.subtitleElement = null;
 		this.contentEl.empty();
 	}
 
 	private move(direction: number): void {
-		if (this.images.length === 0) {
+		if (this.references.length === 0) {
 			return;
 		}
-		this.index = (this.index + direction + this.images.length) % this.images.length;
+		this.index = (this.index + direction + this.references.length) % this.references.length;
 		this.updateImage();
 	}
 
 	private updateImage(): void {
-		const file = this.images[this.index];
-		if (!file || !this.imageElement || !this.captionElement || !this.counterElement) {
+		const reference = this.references[this.index];
+		if (!reference || !this.imageElement || !this.titleElement || !this.subtitleElement) {
 			return;
 		}
-		this.imageElement.src = this.app.vault.getResourcePath(file);
-		this.imageElement.alt = file.basename;
-		this.captionElement.setText(file.name);
-		this.counterElement.setText(`${this.index + 1} / ${this.images.length}`);
+		const file = this.app.vault.getFileByPath(reference.image.path);
+		if (file) {
+			this.imageElement.src = this.app.vault.getResourcePath(file);
+		} else {
+			this.imageElement.removeAttribute('src');
+		}
+		this.imageElement.alt = reference.image.name;
+		this.titleElement.setText(reference.image.name);
+		this.subtitleElement.setText(`${reference.albumName} · ${this.index + 1} of ${this.references.length}`);
 	}
 }
