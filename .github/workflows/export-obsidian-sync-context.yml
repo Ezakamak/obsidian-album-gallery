@@ -1,0 +1,28 @@
+name: Export Obsidian sync context
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/obsidian-cloud-sync-v1
+      - name: Prepare plugin source archive
+        run: |
+          mkdir -p /tmp/context
+          cp package.json package-lock.json tsconfig.json esbuild.config.mjs manifest.json versions.json styles.css /tmp/context/ 2>/dev/null || true
+          cp -R src /tmp/context/src
+          find /tmp/context -type f | sort > /tmp/context/FILES.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: obsidian-album-gallery-sync-context
+          path: /tmp/context
+          retention-days: 1
