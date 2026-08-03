@@ -16,8 +16,11 @@ import {
 import { AlbumGalleryView } from './gallery-view';
 import { createGalleryDocument, serializeGalleryDocument } from './model';
 import {
+	EKATECH_STUDY_LINK_EXTENSION,
+	EKATECH_STUDY_LINK_MIME,
 	createEkatechStudyConnectURL,
 	createEkatechStudyLinkNonce,
+	createEkatechStudyLinkPackage,
 } from './ekatech-study';
 import {
 	AlbumGallerySettings,
@@ -82,59 +85,81 @@ export default class AlbumGalleryPlugin extends Plugin {
 	}
 
 	beginEkatechStudyLink(): void {
-		const nonce = createEkatechStudyLinkNonce();
-		this.settings.ekatechStudyPendingNonce = nonce;
-		void this.saveSettings();
-
-		const url = createEkatechStudyConnectURL(nonce);
-		this.openEkatechStudy(url);
+		void this.beginEkatechStudyLinkFlow();
 	}
 
-	private openEkatechStudy(url: string): void {
-		let didLeaveObsidian = false;
-		const onVisibilityChange = (): void => {
-			if (document.visibilityState === 'hidden') {
-				didLeaveObsidian = true;
-			}
-		};
+	private async beginEkatechStudyLinkFlow(): Promise<void> {
+		const nonce = createEkatechStudyLinkNonce();
+		this.settings.ekatechStudyPendingNonce = nonce;
+		await this.saveSettings();
 
 		if (Platform.isIosApp) {
-			document.addEventListener('visibilitychange', onVisibilityChange);
-		}
-
-		new Notice('Ekatech Study açılıyor…', 1800);
-
-		try {
-			// A custom scheme must be navigated in the current WKWebView. Opening it in a
-			// new browsing context is ignored by Obsidian on iOS.
-			window.location.assign(url);
-		} catch (error) {
-			console.error('Album Gallery could not open Ekatech Study', error);
-			if (Platform.isIosApp) {
-				document.removeEventListener('visibilitychange', onVisibilityChange);
-			}
-			new Notice('Ekatech Study açılamadı. Uygulamanın yüklü olduğundan emin ol.');
+			await this.shareEkatechStudyLinkDocument(nonce);
 			return;
 		}
 
-		if (Platform.isIosApp) {
-			window.setTimeout(() => {
-				document.removeEventListener('visibilitychange', onVisibilityChange);
-				if (!didLeaveObsidian && document.visibilityState === 'visible') {
-					new Notice('Ekatech Study açılamadı. Uygulamanın güncel sürümünün yüklü olduğundan emin ol.');
-				}
-			}, 2200);
+		try {
+			window.location.assign(createEkatechStudyConnectURL(nonce));
+			new Notice('Ekatech Study bağlantı isteği açıldı.');
+		} catch (error) {
+			console.error('Album Gallery could not open Ekatech Study', error);
+			await this.clearPendingEkatechStudyLink(nonce);
+			new Notice('Ekatech Study bağlantı isteği açılamadı.');
 		}
+	}
+
+	private async shareEkatechStudyLinkDocument(nonce: string): Promise<void> {
+		const payload = createEkatechStudyLinkPackage(nonce);
+		const file = new File(
+			[`${JSON.stringify(payload, null, 2)}\n`],
+			`Ekatech Study Baglantisi.${EKATECH_STUDY_LINK_EXTENSION}`,
+			{ type: EKATECH_STUDY_LINK_MIME },
+		);
+		const shareData: ShareData = {
+			files: [file],
+			title: 'Ekatech Study bağlantısı',
+			text: 'Album Gallery hesabını bağlamak için Ekatech Study uygulamasını seç.',
+		};
+		const canShare = typeof navigator.share === 'function'
+			&& (typeof navigator.canShare !== 'function' || navigator.canShare({ files: [file] }));
+
+		if (!canShare) {
+			await this.clearPendingEkatechStudyLink(nonce);
+			new Notice('iOS paylaşım menüsü kullanılamıyor. Obsidian ve iOS sürümünü güncelle.');
+			return;
+		}
+
+		new Notice('Paylaşım menüsünden Ekatech Study’yi seç.');
+		try {
+			await navigator.share(shareData);
+			new Notice('Bağlantı isteği Ekatech Study’ye teslim edildi.');
+		} catch (error) {
+			await this.clearPendingEkatechStudyLink(nonce);
+			if (error instanceof DOMException && error.name === 'AbortError') {
+				new Notice('Ekatech Study bağlantısı iptal edildi.');
+				return;
+			}
+			console.error('Album Gallery could not share the Ekatech Study link document', error);
+			new Notice('Ekatech Study bağlantı dosyası paylaşılamadı.');
+		}
+	}
+
+	private async clearPendingEkatechStudyLink(nonce: string): Promise<void> {
+		if (this.settings.ekatechStudyPendingNonce !== nonce) {
+			return;
+		}
+		this.settings.ekatechStudyPendingNonce = '';
+		await this.saveSettings();
 	}
 
 	private async completeEkatechStudyLink(params: Record<string, string>): Promise<void> {
 		const nonce = params.nonce?.trim() ?? '';
 		if (!nonce || nonce !== this.settings.ekatechStudyPendingNonce) {
-			new Notice('Ekatech Study connection could not be verified. Try connecting again.');
+			new Notice('Ekatech Study bağlantısı doğrulanamadı. Yeniden bağlanmayı dene.');
 			return;
 		}
 		if (params.status !== 'connected') {
-			new Notice(params.message || 'Ekatech Study connection was not completed.');
+			new Notice(params.message || 'Ekatech Study bağlantısı tamamlanmadı.');
 			return;
 		}
 
@@ -148,7 +173,7 @@ export default class AlbumGalleryPlugin extends Plugin {
 				leaf.view.ensureEkatechStudyAlbum();
 			}
 		}
-		new Notice('Ekatech Study connected. Hata Defteri album is ready.');
+		new Notice('Ekatech Study bağlandı. Hata Defteri albümü hazır.');
 	}
 
 	refreshOpenGalleryViews(): void {
