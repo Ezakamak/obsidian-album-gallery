@@ -1,9 +1,9 @@
 {
   "id": "album-gallery",
   "name": "Album Gallery",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "minAppVersion": "1.8.0",
-  "description": "Create Apple Photos-inspired galleries with automatically managed album storage.",
+  "description": "Create Apple Photos-inspired albums for photos, animated GIFs, and videos with managed local storage.",
   "author": "Emir",
   "authorUrl": "https://github.com/Ezakamak",
   "isDesktopOnly": false
