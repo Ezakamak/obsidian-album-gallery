@@ -31,15 +31,9 @@ import {
 import {
 	EKATECH_STUDY_ALBUM_KIND,
 	EKATECH_STUDY_ALBUM_NAME,
-	EKATECH_STUDY_IMPORT_EXTENSION,
-	EKATECH_STUDY_IMPORT_MIME,
-	EKATECH_STUDY_IMPORT_TYPE,
 	EKATECH_STUDY_MAX_IMAGE_BYTES,
-	EKATECH_STUDY_MAX_PACKAGE_SOURCE_BYTES,
-	EkatechStudyImportPackage,
-	arrayBufferToBase64,
-	mimeTypeForImageName,
-	safeExportFilename,
+	isStudyCloudImage,
+	type EkatechStudyMistakeDefaults,
 } from './ekatech-study';
 import type AlbumGalleryPlugin from './main';
 import type { GalleryDefaultTab } from './settings';
@@ -58,7 +52,7 @@ export class AlbumGalleryView extends TextFileView {
 	private observer: IntersectionObserver | null = null;
 	private refreshTimer: number | null = null;
 	private importingAlbumId: string | null = null;
-	private exportingAlbumId: string | null = null;
+	private syncingStudyAlbum = false;
 
 	constructor(leaf: WorkspaceLeaf, plugin: AlbumGalleryPlugin) {
 		super(leaf);
@@ -96,8 +90,8 @@ export class AlbumGalleryView extends TextFileView {
 			this.document.title = this.file.basename;
 			shouldSave = true;
 		}
-		if (this.plugin.settings.ekatechStudyLinked && !this.findEkatechStudyAlbum()) {
-			this.document.albums.unshift(createGalleryAlbum(EKATECH_STUDY_ALBUM_NAME, EKATECH_STUDY_ALBUM_KIND));
+		if (this.plugin.ekatechStudyConnected && !this.findEkatechStudyAlbum()) {
+			this.ensureEkatechStudyAlbum();
 			shouldSave = true;
 		}
 
@@ -105,6 +99,7 @@ export class AlbumGalleryView extends TextFileView {
 		if (shouldSave) {
 			window.setTimeout(() => this.requestSave(), 0);
 		}
+		if (this.plugin.ekatechStudyConnected) window.setTimeout(() => { void this.syncPendingStudyImages(false); }, 300);
 	}
 
 	clear(): void {
@@ -140,7 +135,7 @@ export class AlbumGalleryView extends TextFileView {
 		this.contentEl.addClass('album-gallery-view');
 
 		const activeAlbum = this.activeAlbumId
-			? this.document.albums.find((album) => album.id === this.activeAlbumId)
+			? this.getVisibleAlbums().find((album) => album.id === this.activeAlbumId)
 			: undefined;
 
 		if (activeAlbum) {
@@ -153,27 +148,28 @@ export class AlbumGalleryView extends TextFileView {
 	}
 
 	private renderLibrary(): void {
+		const visibleAlbums = this.getVisibleAlbums();
 		const allImages = this.getAllImages();
 		const header = this.contentEl.createDiv({ cls: 'album-gallery-library-header' });
 		const titleGroup = header.createDiv({ cls: 'album-gallery-title-group' });
 		titleGroup.createEl('h1', { text: this.document.title });
 		titleGroup.createDiv({
 			cls: 'album-gallery-library-summary',
-			text: `${allImages.length} ${allImages.length === 1 ? 'photo' : 'photos'} · ${this.document.albums.length} ${this.document.albums.length === 1 ? 'album' : 'albums'}`,
+			text: `${allImages.length} ${allImages.length === 1 ? 'photo' : 'photos'} · ${visibleAlbums.length} ${visibleAlbums.length === 1 ? 'album' : 'albums'}`,
 		});
 
 		const headerActions = header.createDiv({ cls: 'album-gallery-library-actions' });
 		const studyButton = headerActions.createEl('button', {
-			cls: `album-gallery-study-button${this.plugin.settings.ekatechStudyLinked ? ' is-connected' : ''}`,
+			cls: `album-gallery-study-button${this.plugin.ekatechStudyConnected ? ' is-connected' : ''}`,
 			attr: {
 				type: 'button',
-				'aria-label': this.plugin.settings.ekatechStudyLinked ? 'Open Study Hata Defteri' : 'Connect Ekatech Study',
+				'aria-label': this.plugin.ekatechStudyConnected ? 'Open Study Hata Defteri' : 'Connect Ekatech Study',
 			},
 		});
-		setIcon(studyButton, this.plugin.settings.ekatechStudyLinked ? 'badge-check' : 'graduation-cap');
-		studyButton.createSpan({ text: this.plugin.settings.ekatechStudyLinked ? 'Study' : 'Connect Study' });
+		setIcon(studyButton, this.plugin.ekatechStudyConnected ? 'badge-check' : 'graduation-cap');
+		studyButton.createSpan({ text: this.plugin.ekatechStudyConnected ? 'Study' : 'Study hesabına giriş' });
 		studyButton.addEventListener('click', () => {
-			if (!this.plugin.settings.ekatechStudyLinked) {
+			if (!this.plugin.ekatechStudyConnected) {
 				this.plugin.beginEkatechStudyLink();
 				return;
 			}
@@ -204,7 +200,7 @@ export class AlbumGalleryView extends TextFileView {
 			attr: { role: 'tablist', 'aria-label': 'Gallery sections' },
 		});
 		this.renderTabButton(tabBar, 'photos', 'Photos', 'images', photoCount);
-		this.renderTabButton(tabBar, 'albums', 'Albums', 'folder-heart', this.document.albums.length);
+		this.renderTabButton(tabBar, 'albums', 'Albums', 'folder-heart', this.getVisibleAlbums().length);
 	}
 
 	private renderTabButton(
@@ -258,7 +254,8 @@ export class AlbumGalleryView extends TextFileView {
 	}
 
 	private renderAlbums(): void {
-		if (this.document.albums.length === 0) {
+		const visibleAlbums = this.getVisibleAlbums();
+		if (visibleAlbums.length === 0) {
 			this.renderEmptyState(
 				'folder-heart',
 				'No albums yet',
@@ -274,11 +271,11 @@ export class AlbumGalleryView extends TextFileView {
 		sectionHeader.createEl('h2', { text: 'Albums' });
 		sectionHeader.createDiv({
 			cls: 'album-gallery-section-count',
-			text: `${this.document.albums.length}`,
+			text: `${visibleAlbums.length}`,
 		});
 
 		const grid = section.createDiv({ cls: 'album-gallery-album-grid' });
-		for (const album of this.document.albums) {
+		for (const album of visibleAlbums) {
 			this.renderAlbumCard(grid, album);
 		}
 	}
@@ -349,16 +346,9 @@ export class AlbumGalleryView extends TextFileView {
 
 		const actions = header.createDiv({ cls: 'album-gallery-album-actions' });
 		if (album.kind === EKATECH_STUDY_ALBUM_KIND) {
-			const exportButton = actions.createEl('button', {
-				cls: 'album-gallery-export-study-button mod-cta',
-				attr: { type: 'button', 'aria-label': 'Send questions to Ekatech Study' },
-			});
-			setIcon(exportButton, this.exportingAlbumId === album.id ? 'loader-circle' : 'send');
-			exportButton.createSpan({ text: this.exportingAlbumId === album.id ? 'Preparing…' : 'Send to Study' });
-			exportButton.disabled = this.exportingAlbumId !== null;
-			exportButton.addEventListener('click', () => {
-				void this.exportAlbumToEkatechStudy(album);
-			});
+			const quota = this.plugin.settings.ekatechStudyStatus?.quota;
+			const quotaText = quota?.unlimited ? 'Sınırsız' : `${quota?.used ?? 0} / ${quota?.limit ?? 12}`;
+			actions.createSpan({ cls: 'album-gallery-study-quota-pill', text: quotaText });
 		}
 		const addButton = actions.createEl('button', {
 			cls: 'album-gallery-add-photos-button mod-cta',
@@ -374,6 +364,8 @@ export class AlbumGalleryView extends TextFileView {
 		});
 		setIcon(menuButton, 'ellipsis');
 		menuButton.addEventListener('click', (event) => this.openAlbumMenu(event, album));
+
+		if (album.kind === EKATECH_STUDY_ALBUM_KIND) this.renderStudyControls(album);
 
 		if (this.importingAlbumId === album.id) {
 			const importing = this.contentEl.createDiv({ cls: 'album-gallery-importing' });
@@ -449,6 +441,7 @@ export class AlbumGalleryView extends TextFileView {
 			attr: { type: 'button', 'aria-label': `Open ${reference.image.name}` },
 		});
 		this.renderImageElement(button, reference.image, reference.image.name);
+		if (reference.image.study) this.renderStudySyncBadge(button, reference.image);
 		button.addEventListener('click', () => {
 			new ImageLightboxModal(
 				this.app,
@@ -533,9 +526,9 @@ export class AlbumGalleryView extends TextFileView {
 			.onClick(() => this.openPhotoPicker(album.id)));
 		if (album.kind === EKATECH_STUDY_ALBUM_KIND) {
 			menu.addItem((item) => item
-				.setTitle('Send to Ekatech Study')
-				.setIcon('send')
-				.onClick(() => { void this.exportAlbumToEkatechStudy(album); }));
+				.setTitle('Senkronizasyonu yeniden dene')
+				.setIcon('refresh-cw')
+				.onClick(() => { void this.syncPendingStudyImages(true); }));
 		} else {
 			menu.addItem((item) => item
 				.setTitle('Rename album')
@@ -551,128 +544,37 @@ export class AlbumGalleryView extends TextFileView {
 	}
 
 	public ensureEkatechStudyAlbum(): GalleryAlbum {
+		const accountId = this.plugin.ekatechStudyAccountId;
+		if (!accountId) throw new Error('Study account is not connected.');
 		const existing = this.findEkatechStudyAlbum();
-		if (existing) {
-			return existing;
+		if (existing) return existing;
+		const legacy = this.document.albums.find((album) => album.kind === EKATECH_STUDY_ALBUM_KIND && !album.studyAccountId);
+		if (legacy) {
+			legacy.studyAccountId = accountId;
+			legacy.name = EKATECH_STUDY_ALBUM_NAME;
+			this.requestSave();
+			return legacy;
 		}
-		const album = createGalleryAlbum(EKATECH_STUDY_ALBUM_NAME, EKATECH_STUDY_ALBUM_KIND);
+		const album = createGalleryAlbum(EKATECH_STUDY_ALBUM_NAME, EKATECH_STUDY_ALBUM_KIND, accountId);
 		this.document.albums.unshift(album);
 		this.requestSave();
-		this.render();
 		return album;
 	}
 
-	private findEkatechStudyAlbum(): GalleryAlbum | undefined {
-		return this.document.albums.find((album) => album.kind === EKATECH_STUDY_ALBUM_KIND);
+	public activateEkatechStudyAlbum(): void {
+		if (!this.plugin.ekatechStudyConnected) return;
+		const album = this.ensureEkatechStudyAlbum();
+		this.activeTab = 'albums';
+		this.activeAlbumId = album.id;
+		this.render();
+		void this.syncPendingStudyImages(false);
 	}
 
-	private async exportAlbumToEkatechStudy(album: GalleryAlbum): Promise<void> {
-		if (!this.plugin.settings.ekatechStudyLinked) {
-			this.plugin.beginEkatechStudyLink();
-			return;
-		}
-		if (album.kind !== EKATECH_STUDY_ALBUM_KIND) {
-			new Notice('Only the Hata Defteri album can be sent to Ekatech Study.');
-			return;
-		}
-		const references = this.getAlbumReferences(album);
-		if (references.length === 0) {
-			new Notice('Add at least one question photo before sending.');
-			return;
-		}
-		if (this.exportingAlbumId !== null) {
-			return;
-		}
-
-		this.exportingAlbumId = album.id;
-		this.render();
-		try {
-			let sourceBytes = 0;
-			const questions: EkatechStudyImportPackage['questions'] = [];
-			for (let index = 0; index < references.length; index += 1) {
-				const reference = references[index];
-				if (!reference) {
-					continue;
-				}
-				const file = this.app.vault.getFileByPath(reference.image.path);
-				if (!file) {
-					throw new Error(`Missing photo: ${reference.image.name}`);
-				}
-				if (file.stat.size > EKATECH_STUDY_MAX_IMAGE_BYTES) {
-					throw new Error(`${file.name} is larger than the 20 MB local transfer limit.`);
-				}
-				sourceBytes += file.stat.size;
-				if (sourceBytes > EKATECH_STUDY_MAX_PACKAGE_SOURCE_BYTES) {
-					throw new Error('The selected questions exceed the 120 MB local transfer limit. Send them in smaller groups.');
-				}
-				const data = await this.app.vault.readBinary(file);
-				questions.push({
-					id: reference.image.id,
-					title: `Soru ${index + 1}`,
-					originalName: reference.image.name,
-					mimeType: mimeTypeForImageName(reference.image.name),
-					dataBase64: arrayBufferToBase64(data),
-				});
-			}
-
-			const payload: EkatechStudyImportPackage = {
-				version: 1,
-				type: EKATECH_STUDY_IMPORT_TYPE,
-				source: 'obsidian-album-gallery',
-				createdAt: new Date().toISOString(),
-				gallery: {
-					id: this.document.id,
-					title: this.document.title,
-					fileName: this.file?.name ?? `${this.document.title}.gallery`,
-				},
-				album: { id: album.id, name: album.name },
-				defaults: {
-					examType: 'TYT',
-					lessonID: '',
-					topicID: '',
-					sourceName: 'Obsidian ile aktarıldı',
-					questionNote: 'Obsidian ile aktarıldı',
-					reviewIntervalDays: 7,
-				},
-				questions,
-			};
-
-			const filename = `${safeExportFilename(this.document.title)}.${EKATECH_STUDY_IMPORT_EXTENSION}`;
-			const json = JSON.stringify(payload);
-			const transferFile = new File([json], filename, { type: EKATECH_STUDY_IMPORT_MIME });
-			const shareData: ShareData = {
-				files: [transferFile],
-				title: 'Ekatech Study Hata Defteri',
-				text: `${questions.length} soru Ekatech Study için hazır.`,
-			};
-			const canShare = typeof navigator.share === 'function'
-				&& (typeof navigator.canShare !== 'function' || navigator.canShare(shareData));
-			if (canShare) {
-				await navigator.share(shareData);
-				new Notice(`${questions.length} question${questions.length === 1 ? '' : 's'} handed to Ekatech Study locally.`);
-			} else {
-				const exportFolder = 'Album Gallery Exports';
-				await this.ensureFolder(exportFolder);
-				const exportPath = normalizePath(`${exportFolder}/${filename}`);
-				const existing = this.app.vault.getAbstractFileByPath(exportPath);
-				if (existing) {
-					await this.app.fileManager.trashFile(existing);
-				}
-				const encoded = new TextEncoder().encode(json);
-				const binary = Uint8Array.from(encoded).buffer;
-				await this.app.vault.createBinary(exportPath, binary);
-				new Notice(`Local transfer package saved to ${exportPath}. Share it with Ekatech Study.`);
-			}
-		} catch (error) {
-			if (error instanceof DOMException && error.name === 'AbortError') {
-				return;
-			}
-			console.error('Album Gallery could not prepare the Ekatech Study transfer', error);
-			new Notice(error instanceof Error ? error.message : 'Ekatech Study transfer could not be prepared.');
-		} finally {
-			this.exportingAlbumId = null;
-			this.render();
-		}
+	private findEkatechStudyAlbum(): GalleryAlbum | undefined {
+		const accountId = this.plugin.ekatechStudyAccountId;
+		if (!accountId) return undefined;
+		return this.document.albums.find((album) => album.kind === EKATECH_STUDY_ALBUM_KIND && album.studyAccountId === accountId)
+			?? this.document.albums.find((album) => album.kind === EKATECH_STUDY_ALBUM_KIND && !album.studyAccountId);
 	}
 
 	private openPhotoPicker(albumId: string): void {
@@ -706,7 +608,11 @@ export class AlbumGalleryView extends TextFileView {
 			return;
 		}
 
-		const accepted = files.filter((file) => this.isSupportedImageFile(file));
+		const accepted = files.filter((file) => {
+			if (!this.isSupportedImageFile(file)) return false;
+			if (album.kind !== EKATECH_STUDY_ALBUM_KIND) return true;
+			return isStudyCloudImage(file.name, file.type) && file.size <= EKATECH_STUDY_MAX_IMAGE_BYTES;
+		});
 		if (accepted.length === 0) {
 			new Notice('No supported image files were selected.');
 			return;
@@ -732,7 +638,14 @@ export class AlbumGalleryView extends TextFileView {
 					const path = normalizePath(`${albumFolder}/${filename}`);
 					const data = await source.arrayBuffer();
 					await this.app.vault.createBinary(path, data);
-					album.images.push(createGalleryImage(path, source.name || filename, Date.now() + index));
+					const defaults = album.kind === EKATECH_STUDY_ALBUM_KIND ? this.plugin.getEkatechStudyDefaults() : null;
+					const accountId = album.kind === EKATECH_STUDY_ALBUM_KIND ? this.plugin.ekatechStudyAccountId : null;
+					album.images.push(createGalleryImage(
+						path,
+						source.name || filename,
+						Date.now() + index,
+						defaults && accountId ? { ...defaults, accountId, syncState: 'pending' } : undefined,
+					));
 					imported += 1;
 				} catch (error) {
 					console.error('Album Gallery failed to import a photo', error);
@@ -754,6 +667,7 @@ export class AlbumGalleryView extends TextFileView {
 		if (failed > 0) {
 			new Notice(`${failed} ${failed === 1 ? 'photo could' : 'photos could'} not be imported.`);
 		}
+		if (imported > 0 && album.kind === EKATECH_STUDY_ALBUM_KIND) void this.syncPendingStudyImages(false);
 	}
 
 	private isSupportedImageFile(file: File): boolean {
@@ -891,8 +805,189 @@ export class AlbumGalleryView extends TextFileView {
 		new Notice('Album deleted.');
 	}
 
+	private renderStudyControls(album: GalleryAlbum): void {
+		const status = this.plugin.settings.ekatechStudyStatus;
+		const defaults = this.plugin.getEkatechStudyDefaults();
+		if (!status || !defaults) return;
+		const panel = this.contentEl.createDiv({ cls: 'album-gallery-study-settings' });
+		const heading = panel.createDiv({ cls: 'album-gallery-study-settings-heading' });
+		const title = heading.createDiv();
+		title.createEl('h2', { text: 'Hata ayarları' });
+		title.createEl('p', { text: 'Bu ayarlar bundan sonra ekleyeceğin fotoğraflara uygulanır. Swift içinde yeniden form açılmaz.' });
+		const quota = status.quota;
+		heading.createSpan({
+			cls: `album-gallery-study-quota${quota.exhausted ? ' is-exhausted' : ''}`,
+			text: quota.unlimited ? `${status.account.plan} · Sınırsız` : `${status.account.plan} · ${quota.used} / ${quota.limit ?? 12}`,
+		});
+
+		const grid = panel.createDiv({ cls: 'album-gallery-study-settings-grid' });
+		const exam = this.createStudySelect(grid, 'Sınav', status.curriculum.map((item) => ({ value: item.id, label: item.label })), defaults.examType);
+		const subject = this.createStudySelect(grid, 'Ders', [], defaults.subjectCode);
+		const topic = this.createStudySelect(grid, 'Konu', [], defaults.topicCode);
+		const mistake = this.createStudySelect(grid, 'Hata türü', status.mistakeTypes.map((item) => ({ value: item.id, label: item.label })), defaults.mistakeType);
+		const interval = this.createStudySelect(grid, 'Tekrar sıklığı', status.reviewIntervals.map((item) => ({ value: String(item.days), label: item.label })), String(defaults.reviewIntervalDays));
+		const source = this.createStudyInput(grid, 'Kaynak', defaults.sourceName, 'Örn. Deneme 3');
+		const question = this.createStudyInput(grid, 'Soru notu', defaults.questionNote, 'İsteğe bağlı');
+		const solution = this.createStudyInput(grid, 'Çözüm notu', defaults.solutionNote, 'İsteğe bağlı');
+
+		const exams = status.curriculum;
+		const populateSubjects = (): void => {
+			const selectedExam = exams.find((item) => item.id === exam.value) ?? exams[0];
+			subject.empty();
+			for (const item of selectedExam?.subjects ?? []) subject.createEl('option', { value: item.id, text: item.label });
+			if ((selectedExam?.subjects ?? []).some((item) => item.id === defaults.subjectCode)) subject.value = defaults.subjectCode;
+			if (!subject.value && subject.options.length > 0) subject.selectedIndex = 0;
+		};
+		const populateTopics = (): void => {
+			const selectedExam = exams.find((item) => item.id === exam.value) ?? exams[0];
+			const selectedSubject = selectedExam?.subjects.find((item) => item.id === subject.value) ?? selectedExam?.subjects[0];
+			topic.empty();
+			for (const item of selectedSubject?.topics ?? []) topic.createEl('option', { value: item.id, text: item.label });
+			if ((selectedSubject?.topics ?? []).some((item) => item.id === defaults.topicCode)) topic.value = defaults.topicCode;
+			if (!topic.value && topic.options.length > 0) topic.selectedIndex = 0;
+		};
+		const save = (): void => {
+			void this.plugin.updateEkatechStudyDefaults({
+				examType: exam.value,
+				subjectCode: subject.value,
+				topicCode: topic.value,
+				mistakeType: mistake.value,
+				reviewIntervalDays: Number(interval.value) || 7,
+				sourceName: source.value.trim().slice(0, 120),
+				questionNote: question.value.trim().slice(0, 1000),
+				solutionNote: solution.value.trim().slice(0, 2000),
+			});
+		};
+		populateSubjects();
+		populateTopics();
+		exam.addEventListener('change', () => { populateSubjects(); populateTopics(); save(); });
+		subject.addEventListener('change', () => { populateTopics(); save(); });
+		for (const element of [topic, mistake, interval]) element.addEventListener('change', save);
+		for (const element of [source, question, solution]) element.addEventListener('change', save);
+
+		if (quota.exhausted) {
+			panel.createDiv({
+				cls: 'album-gallery-study-limit-warning',
+				text: `Aylık 12 yükleme hakkın doldu. Yeni fotoğraflar cihazda kalır ve ${new Date(quota.resetsAt).toLocaleDateString('tr-TR')} tarihinde otomatik devam eder.`,
+			});
+		}
+		const pending = album.images.filter((image) => image.study?.syncState !== 'synced').length;
+		if (pending > 0) panel.createDiv({ cls: 'album-gallery-study-pending', text: `${pending} fotoğraf senkronizasyon kuyruğunda.` });
+	}
+
+	private createStudySelect(
+		container: HTMLElement,
+		label: string,
+		options: Array<{ value: string; label: string }>,
+		value: string,
+	): HTMLSelectElement {
+		const field = container.createEl('label', { cls: 'album-gallery-study-field' });
+		field.createSpan({ text: label });
+		const select = field.createEl('select');
+		for (const option of options) select.createEl('option', { value: option.value, text: option.label });
+		select.value = value;
+		return select;
+	}
+
+	private createStudyInput(container: HTMLElement, label: string, value: string, placeholder: string): HTMLInputElement {
+		const field = container.createEl('label', { cls: 'album-gallery-study-field' });
+		field.createSpan({ text: label });
+		const input = field.createEl('input', { type: 'text', value, placeholder });
+		return input;
+	}
+
+	private renderStudySyncBadge(container: HTMLElement, image: GalleryImage): void {
+		const state = image.study?.syncState ?? 'pending';
+		const labels: Record<string, string> = {
+			pending: 'Bekliyor',
+			uploading: 'Yükleniyor',
+			synced: 'Study ✓',
+			failed: 'Tekrar denenecek',
+			quota: 'Kota bekliyor',
+		};
+		container.createSpan({ cls: `album-gallery-study-sync-badge is-${state}`, text: labels[state] ?? state });
+	}
+
+	public async syncPendingStudyImages(force: boolean): Promise<void> {
+		if (this.syncingStudyAlbum || !this.plugin.ekatechStudyConnected) return;
+		if (force) await this.plugin.refreshEkatechStudyStatus(false);
+		const album = this.findEkatechStudyAlbum();
+		const accountId = this.plugin.ekatechStudyAccountId;
+		const quota = this.plugin.settings.ekatechStudyStatus?.quota;
+		if (!album || !accountId || !quota) return;
+		const now = Date.now();
+		const candidates = album.images.filter((image) => {
+			const metadata = image.study;
+			if (!metadata || metadata.accountId !== accountId || metadata.syncState === 'synced' || metadata.syncState === 'uploading') return false;
+			if (metadata.syncState === 'quota' && quota.exhausted) return false;
+			if (!force && metadata.syncState === 'failed' && metadata.lastAttemptAt && now - metadata.lastAttemptAt < 30_000) return false;
+			return true;
+		});
+		if (candidates.length === 0 || (quota.exhausted && !quota.unlimited)) return;
+
+		this.syncingStudyAlbum = true;
+		let synced = 0;
+		let failed = 0;
+		try {
+			for (const image of candidates) {
+				if (!image.study) continue;
+				const latestQuota = this.plugin.settings.ekatechStudyStatus?.quota;
+				if (latestQuota?.exhausted && !latestQuota.unlimited) {
+					image.study.syncState = 'quota';
+					continue;
+				}
+				const file = this.app.vault.getFileByPath(image.path);
+				if (!file) {
+					image.study.syncState = 'failed';
+					image.study.lastError = 'Fotoğraf dosyası bulunamadı.';
+					image.study.lastAttemptAt = Date.now();
+					failed += 1;
+					continue;
+				}
+				image.study.syncState = 'uploading';
+				image.study.lastAttemptAt = Date.now();
+				delete image.study.lastError;
+				this.requestSave();
+				try {
+					const result = await this.plugin.uploadEkatechStudyImage(
+						file,
+						image,
+						image.study,
+						image.name.replace(/\.[^.]+$/, '').slice(0, 120) || 'Obsidian sorusu',
+					);
+					image.study.syncState = 'synced';
+					image.study.remoteMistakeId = result.mistakeId;
+					image.study.syncedAt = Date.now();
+					synced += 1;
+				} catch (error) {
+					const code = error instanceof Error && 'code' in error ? String((error as { code?: string }).code || '') : '';
+					image.study.syncState = code === 'OBSIDIAN_MONTHLY_LIMIT_REACHED' ? 'quota' : 'failed';
+					image.study.lastError = error instanceof Error ? error.message : 'Yükleme tamamlanamadı.';
+					failed += 1;
+					if (code === 'OBSIDIAN_MONTHLY_LIMIT_REACHED' || code === 'OBSIDIAN_AUTH_REQUIRED' || code === 'OBSIDIAN_SESSION_EXPIRED') break;
+				}
+				this.requestSave();
+			}
+		} finally {
+			this.syncingStudyAlbum = false;
+			album.updatedAt = Date.now();
+			this.requestSave();
+			this.render();
+		}
+		if (synced > 0) new Notice(`${synced} fotoğraf Study Hata Defteri’ne otomatik yüklendi.`);
+		if (failed > 0 && synced === 0) new Notice('Bazı Hata Defteri fotoğrafları kuyrukta kaldı; otomatik yeniden denenecek.');
+	}
+
+	private getVisibleAlbums(): GalleryAlbum[] {
+		const accountId = this.plugin.ekatechStudyAccountId;
+		return this.document.albums.filter((album) => {
+			if (album.kind !== EKATECH_STUDY_ALBUM_KIND) return true;
+			return Boolean(accountId && (album.studyAccountId === accountId || !album.studyAccountId));
+		});
+	}
+
 	private getAllImages(): GalleryImageReference[] {
-		const references = this.document.albums.flatMap((album) => this.getAlbumReferences(album));
+		const references = this.getVisibleAlbums().flatMap((album) => this.getAlbumReferences(album));
 		return references.sort((left, right) => {
 			switch (this.document.layout.sort) {
 				case 'name-asc':

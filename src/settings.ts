@@ -1,4 +1,5 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
+import type { EkatechStudyMistakeDefaults, EkatechStudyStatus } from './ekatech-study';
 import type AlbumGalleryPlugin from './main';
 
 export type GalleryDefaultTab = 'photos' | 'albums';
@@ -6,17 +7,21 @@ export type GalleryDefaultTab = 'photos' | 'albums';
 export interface AlbumGallerySettings {
 	batchSize: number;
 	defaultTab: GalleryDefaultTab;
-	ekatechStudyLinked: boolean;
-	ekatechStudyAccountLabel: string;
-	ekatechStudyPendingNonce: string;
+	ekatechStudyToken: string;
+	ekatechStudyVaultId: string;
+	ekatechStudyPendingState: string;
+	ekatechStudyStatus: EkatechStudyStatus | null;
+	ekatechStudyDefaultsByAccount: Record<string, EkatechStudyMistakeDefaults>;
 }
 
 export const DEFAULT_SETTINGS: AlbumGallerySettings = {
 	batchSize: 100,
 	defaultTab: 'photos',
-	ekatechStudyLinked: false,
-	ekatechStudyAccountLabel: '',
-	ekatechStudyPendingNonce: '',
+	ekatechStudyToken: '',
+	ekatechStudyVaultId: '',
+	ekatechStudyPendingState: '',
+	ekatechStudyStatus: null,
+	ekatechStudyDefaultsByAccount: {},
 };
 
 export class AlbumGallerySettingTab extends PluginSettingTab {
@@ -29,15 +34,42 @@ export class AlbumGallerySettingTab extends PluginSettingTab {
 
 	display(): void {
 		this.containerEl.empty();
+		const status = this.plugin.settings.ekatechStudyStatus;
+		const quota = status?.quota;
+		const accountText = status
+			? `${status.account.displayName} · ${status.account.plan}`
+			: 'Obsidian içinde Study hesabına giriş yap. Hata Defteri albümü otomatik oluşturulur ve eklediğin fotoğraflar aynı hesaba yüklenir.';
+		const quotaText = quota
+			? quota.unlimited
+				? 'Obsidian cloud yüklemeleri sınırsız.'
+				: `Bu ay ${quota.used} / ${quota.limit ?? 12} yükleme kullanıldı. ${quota.remaining ?? 0} kaldı.`
+			: '';
 
 		new Setting(this.containerEl)
 			.setName('Ekatech Study')
-			.setDesc(this.plugin.settings.ekatechStudyLinked
-				? `Connected${this.plugin.settings.ekatechStudyAccountLabel ? ` as ${this.plugin.settings.ekatechStudyAccountLabel}` : ''}. Photos are handed to Study locally through iOS; they are not uploaded by this plugin.`
-				: 'Connect the Ekatech Study app to create a managed Hata Defteri album and transfer selected questions locally.')
-			.addButton((button) => button
-				.setButtonText(this.plugin.settings.ekatechStudyLinked ? 'Reconnect' : 'Connect')
-				.onClick(() => this.plugin.beginEkatechStudyLink()));
+			.setDesc([accountText, quotaText].filter(Boolean).join(' '))
+			.addButton((button) => {
+				if (status) {
+					button.setButtonText('Çıkış yap').setWarning().onClick(async () => {
+						await this.plugin.disconnectEkatechStudy();
+						this.display();
+					});
+				} else {
+					button.setButtonText('Study hesabına giriş').setCta().onClick(() => {
+						this.plugin.beginEkatechStudyLink();
+					});
+				}
+			});
+
+		if (status) {
+			new Setting(this.containerEl)
+				.setName('Hesabı ve kotayı yenile')
+				.setDesc('Study paketini, aylık kotayı ve ders-konu listesini yeniden kontrol eder.')
+				.addButton((button) => button.setButtonText('Yenile').onClick(async () => {
+					await this.plugin.refreshEkatechStudyStatus(true);
+					this.display();
+				}));
+		}
 
 		new Setting(this.containerEl)
 			.setName('Default tab')

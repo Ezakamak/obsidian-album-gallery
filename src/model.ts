@@ -1,11 +1,29 @@
 export type GallerySort = 'added-desc' | 'added-asc' | 'name-asc' | 'name-desc';
 export type GalleryAlbumKind = 'standard' | 'ekatech-study-mistakes';
 
+export interface GalleryStudyMetadata {
+	accountId: string;
+	examType: string;
+	subjectCode: string;
+	topicCode: string;
+	mistakeType: string;
+	reviewIntervalDays: number;
+	sourceName: string;
+	questionNote: string;
+	solutionNote: string;
+	syncState: 'pending' | 'uploading' | 'synced' | 'failed' | 'quota';
+	remoteMistakeId?: string;
+	lastError?: string;
+	lastAttemptAt?: number;
+	syncedAt?: number;
+}
+
 export interface GalleryImage {
 	id: string;
 	path: string;
 	name: string;
 	addedAt: number;
+	study?: GalleryStudyMetadata;
 }
 
 export interface GalleryAlbum {
@@ -14,6 +32,7 @@ export interface GalleryAlbum {
 	images: GalleryImage[];
 	coverImageId?: string;
 	kind?: GalleryAlbumKind;
+	studyAccountId?: string;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -52,24 +71,26 @@ export function createGalleryDocument(title: string): GalleryDocument {
 	};
 }
 
-export function createGalleryAlbum(name: string, kind: GalleryAlbumKind = 'standard'): GalleryAlbum {
+export function createGalleryAlbum(name: string, kind: GalleryAlbumKind = 'standard', studyAccountId?: string): GalleryAlbum {
 	const now = Date.now();
 	return {
 		id: createId(),
 		name,
 		images: [],
 		...(kind !== 'standard' ? { kind } : {}),
+		...(studyAccountId ? { studyAccountId } : {}),
 		createdAt: now,
 		updatedAt: now,
 	};
 }
 
-export function createGalleryImage(path: string, name: string, addedAt = Date.now()): GalleryImage {
+export function createGalleryImage(path: string, name: string, addedAt = Date.now(), study?: GalleryStudyMetadata): GalleryImage {
 	return {
 		id: createId(),
 		path,
 		name,
 		addedAt,
+		...(study ? { study } : {}),
 	};
 }
 
@@ -148,6 +169,7 @@ function parseAlbum(value: unknown): GalleryAlbum | null {
 	const kind: GalleryAlbumKind = kindValue === 'ekatech-study-mistakes'
 		? 'ekatech-study-mistakes'
 		: 'standard';
+	const studyAccountId = readNonEmptyString(value.studyAccountId);
 
 	return {
 		id,
@@ -155,6 +177,7 @@ function parseAlbum(value: unknown): GalleryAlbum | null {
 		images,
 		...(coverImageId ? { coverImageId } : {}),
 		...(kind !== 'standard' ? { kind } : {}),
+		...(studyAccountId ? { studyAccountId } : {}),
 		createdAt,
 		updatedAt,
 	};
@@ -171,11 +194,47 @@ function parseImage(value: unknown): GalleryImage | null {
 		return null;
 	}
 
+	const study = parseStudyMetadata(value.study);
 	return {
 		id: readNonEmptyString(value.id) ?? createId(),
 		path,
 		name,
 		addedAt: readFiniteNumber(value.addedAt) ?? Date.now(),
+		...(study ? { study } : {}),
+	};
+}
+
+function parseStudyMetadata(value: unknown): GalleryStudyMetadata | null {
+	if (!isRecord(value)) return null;
+	const accountId = readNonEmptyString(value.accountId);
+	const examType = readNonEmptyString(value.examType);
+	const subjectCode = readNonEmptyString(value.subjectCode);
+	const topicCode = readNonEmptyString(value.topicCode);
+	const mistakeType = readNonEmptyString(value.mistakeType);
+	const sourceName = typeof value.sourceName === 'string' ? value.sourceName : '';
+	const syncValue = readNonEmptyString(value.syncState);
+	const syncState: GalleryStudyMetadata['syncState'] = syncValue === 'uploading'
+		|| syncValue === 'synced'
+		|| syncValue === 'failed'
+		|| syncValue === 'quota'
+		? syncValue
+		: 'pending';
+	if (!accountId || !examType || !subjectCode || !topicCode || !mistakeType) return null;
+	return {
+		accountId,
+		examType,
+		subjectCode,
+		topicCode,
+		mistakeType,
+		reviewIntervalDays: readFiniteNumber(value.reviewIntervalDays) ?? 7,
+		sourceName,
+		questionNote: typeof value.questionNote === 'string' ? value.questionNote : '',
+		solutionNote: typeof value.solutionNote === 'string' ? value.solutionNote : '',
+		syncState,
+		...(readNonEmptyString(value.remoteMistakeId) ? { remoteMistakeId: readNonEmptyString(value.remoteMistakeId) ?? undefined } : {}),
+		...(typeof value.lastError === 'string' && value.lastError ? { lastError: value.lastError } : {}),
+		...(readFiniteNumber(value.lastAttemptAt) !== null ? { lastAttemptAt: readFiniteNumber(value.lastAttemptAt) ?? undefined } : {}),
+		...(readFiniteNumber(value.syncedAt) !== null ? { syncedAt: readFiniteNumber(value.syncedAt) ?? undefined } : {}),
 	};
 }
 
