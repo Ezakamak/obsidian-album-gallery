@@ -1,0 +1,120 @@
+name: Fix lightbox safe-area close button
+
+on:
+  push:
+    branches:
+      - agent/lightbox-safe-area-close
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply iPhone safe-area fix
+        shell: bash
+        run: |
+          if grep -q "Lightbox safe-area close button fix" styles.css; then
+            echo "Safe-area fix is already present"
+          else
+            cat >> styles.css <<'CSS'
+
+          /* Lightbox safe-area close button fix */
+          @media (max-width: 700px) {
+            .album-gallery-lightbox-modal {
+              inset: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              box-sizing: border-box;
+            }
+
+            .album-gallery-lightbox-modal .modal-close-button {
+              position: fixed !important;
+              top: calc(env(safe-area-inset-top, 0px) + 12px) !important;
+              right: calc(env(safe-area-inset-right, 0px) + 12px) !important;
+              left: auto !important;
+              display: grid !important;
+              place-items: center;
+              width: 48px !important;
+              height: 48px !important;
+              min-width: 48px !important;
+              min-height: 48px !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              border-radius: 50% !important;
+              background: rgba(38, 38, 38, 0.88) !important;
+              color: var(--text-normal) !important;
+              box-shadow: var(--shadow-s);
+              backdrop-filter: blur(16px);
+              -webkit-backdrop-filter: blur(16px);
+              transform: none !important;
+              pointer-events: auto !important;
+              touch-action: manipulation;
+              z-index: 1000 !important;
+            }
+
+            .album-gallery-lightbox-modal .modal-content {
+              padding-top: calc(env(safe-area-inset-top, 0px) + 72px) !important;
+            }
+
+            .album-gallery-lightbox-toolbar {
+              padding-right: 16px;
+            }
+          }
+          CSS
+          fi
+
+      - name: Bump patch version
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const version = '0.2.2';
+
+          for (const path of ['manifest.json', 'package.json', 'package-lock.json', 'versions.json']) {
+            const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+            if (path === 'versions.json') {
+              data[version] = '1.8.0';
+            } else {
+              data.version = version;
+              if (path === 'package-lock.json' && data.packages?.['']) {
+                data.packages[''].version = version;
+              }
+            }
+            fs.writeFileSync(path, `${JSON.stringify(data, null, path === 'package-lock.json' ? '\t' : 2)}\n`);
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit validated fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add styles.css main.js manifest.json package.json package-lock.json versions.json
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+            exit 0
+          fi
+          git commit -m "Keep mobile lightbox close control inside safe area [skip ci]"
+          git push
