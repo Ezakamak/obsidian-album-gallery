@@ -151,7 +151,7 @@ export class AlbumGalleryView extends TextFileView {
 		setIcon(createButton, 'folder-plus');
 		createButton.addEventListener('click', () => this.openCreateAlbumModal());
 
-		this.renderTabBar();
+		this.renderTabBar(allImages.length);
 		if (this.activeTab === 'photos') {
 			this.renderAllPhotos(allImages);
 		} else {
@@ -159,22 +159,44 @@ export class AlbumGalleryView extends TextFileView {
 		}
 	}
 
-	private renderTabBar(): void {
-		const tabBar = this.contentEl.createDiv({ cls: 'album-gallery-tab-bar' });
-		this.renderTabButton(tabBar, 'photos', 'Photos');
-		this.renderTabButton(tabBar, 'albums', 'Albums');
+	private renderTabBar(photoCount: number): void {
+		const tabBar = this.contentEl.createDiv({
+			cls: 'album-gallery-tab-bar',
+			attr: { role: 'tablist', 'aria-label': 'Gallery sections' },
+		});
+		this.renderTabButton(tabBar, 'photos', 'Photos', 'images', photoCount);
+		this.renderTabButton(tabBar, 'albums', 'Albums', 'folder-heart', this.document.albums.length);
 	}
 
-	private renderTabButton(container: HTMLElement, tab: GalleryDefaultTab, label: string): void {
+	private renderTabButton(
+		container: HTMLElement,
+		tab: GalleryDefaultTab,
+		label: string,
+		iconName: string,
+		count: number,
+	): void {
+		const isActive = this.activeTab === tab;
 		const button = container.createEl('button', {
-			cls: `album-gallery-tab${this.activeTab === tab ? ' is-active' : ''}`,
-			text: label,
-			attr: { type: 'button' },
+			cls: `album-gallery-tab${isActive ? ' is-active' : ''}`,
+			attr: {
+				type: 'button',
+				role: 'tab',
+				'aria-selected': isActive ? 'true' : 'false',
+				'aria-current': isActive ? 'page' : 'false',
+			},
 		});
-		button.addEventListener('click', () => {
-			this.activeTab = tab;
-			this.render();
-		});
+		button.disabled = isActive;
+		const icon = button.createSpan({ cls: 'album-gallery-tab-icon' });
+		setIcon(icon, iconName);
+		button.createSpan({ cls: 'album-gallery-tab-label', text: label });
+		button.createSpan({ cls: 'album-gallery-tab-count', text: String(count) });
+
+		if (!isActive) {
+			button.addEventListener('click', () => {
+				this.activeTab = tab;
+				this.render();
+			});
+		}
 	}
 
 	private renderAllPhotos(references: GalleryImageReference[]): void {
@@ -191,7 +213,7 @@ export class AlbumGalleryView extends TextFileView {
 
 		const section = this.contentEl.createDiv({ cls: 'album-gallery-section' });
 		const sectionHeader = section.createDiv({ cls: 'album-gallery-section-heading' });
-		sectionHeader.createEl('h2', { text: 'All Photos' });
+		sectionHeader.createEl('h2', { text: 'Photos' });
 		sectionHeader.createDiv({ cls: 'album-gallery-section-count', text: `${references.length}` });
 		this.renderPhotoGrid(section, references);
 	}
@@ -210,7 +232,7 @@ export class AlbumGalleryView extends TextFileView {
 
 		const section = this.contentEl.createDiv({ cls: 'album-gallery-section' });
 		const sectionHeader = section.createDiv({ cls: 'album-gallery-section-heading' });
-		sectionHeader.createEl('h2', { text: 'My Albums' });
+		sectionHeader.createEl('h2', { text: 'Albums' });
 		sectionHeader.createDiv({
 			cls: 'album-gallery-section-count',
 			text: `${this.document.albums.length}`,
@@ -223,10 +245,10 @@ export class AlbumGalleryView extends TextFileView {
 	}
 
 	private renderAlbumCard(container: HTMLElement, album: GalleryAlbum): void {
-		const card = container.createEl('button', {
-			cls: 'album-gallery-album-card',
-			attr: { type: 'button', 'aria-label': `Open ${album.name}` },
-		});
+		const card = container.createDiv({ cls: 'album-gallery-album-card' });
+		card.setAttr('role', 'button');
+		card.setAttr('tabindex', '0');
+		card.setAttr('aria-label', `Open ${album.name}`);
 		const coverArea = card.createDiv({ cls: 'album-gallery-album-cover' });
 		const cover = this.getAlbumCover(album);
 		if (cover) {
@@ -243,9 +265,16 @@ export class AlbumGalleryView extends TextFileView {
 			text: `${album.images.length} ${album.images.length === 1 ? 'photo' : 'photos'}`,
 		});
 
-		card.addEventListener('click', () => {
+		const openAlbum = (): void => {
 			this.activeAlbumId = album.id;
 			this.render();
+		};
+		card.addEventListener('click', openAlbum);
+		card.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter' || event.key === ' ') {
+				event.preventDefault();
+				openAlbum();
+			}
 		});
 	}
 
