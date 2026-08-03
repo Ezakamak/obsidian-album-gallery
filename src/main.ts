@@ -2,6 +2,7 @@ import {
 	Menu,
 	MenuItem,
 	Notice,
+	Platform,
 	Plugin,
 	TAbstractFile,
 	TFolder,
@@ -84,8 +85,46 @@ export default class AlbumGalleryPlugin extends Plugin {
 		const nonce = createEkatechStudyLinkNonce();
 		this.settings.ekatechStudyPendingNonce = nonce;
 		void this.saveSettings();
-		window.open(createEkatechStudyConnectURL(nonce), '_blank', 'noopener,noreferrer');
-		new Notice('Ekatech Study opened. Approve the connection in the app.');
+
+		const url = createEkatechStudyConnectURL(nonce);
+		this.openEkatechStudy(url);
+	}
+
+	private openEkatechStudy(url: string): void {
+		let didLeaveObsidian = false;
+		const onVisibilityChange = (): void => {
+			if (document.visibilityState === 'hidden') {
+				didLeaveObsidian = true;
+			}
+		};
+
+		if (Platform.isIosApp) {
+			document.addEventListener('visibilitychange', onVisibilityChange);
+		}
+
+		new Notice('Ekatech Study açılıyor…', 1800);
+
+		try {
+			// A custom scheme must be navigated in the current WKWebView. Opening it in a
+			// new browsing context is ignored by Obsidian on iOS.
+			window.location.assign(url);
+		} catch (error) {
+			console.error('Album Gallery could not open Ekatech Study', error);
+			if (Platform.isIosApp) {
+				document.removeEventListener('visibilitychange', onVisibilityChange);
+			}
+			new Notice('Ekatech Study açılamadı. Uygulamanın yüklü olduğundan emin ol.');
+			return;
+		}
+
+		if (Platform.isIosApp) {
+			window.setTimeout(() => {
+				document.removeEventListener('visibilitychange', onVisibilityChange);
+				if (!didLeaveObsidian && document.visibilityState === 'visible') {
+					new Notice('Ekatech Study açılamadı. Uygulamanın güncel sürümünün yüklü olduğundan emin ol.');
+				}
+			}, 2200);
+		}
 	}
 
 	private async completeEkatechStudyLink(params: Record<string, string>): Promise<void> {
