@@ -3,8 +3,21 @@ export const EKATECH_STUDY_ALBUM_NAME = 'Hata Defteri';
 export const EKATECH_STUDY_IMPORT_TYPE = 'ekatech-study-mistake-import';
 export const EKATECH_STUDY_IMPORT_EXTENSION = 'ekastudyimport';
 export const EKATECH_STUDY_IMPORT_MIME = 'application/vnd.ekatech.study-import+json';
+export const EKATECH_STUDY_LINK_TYPE = 'ekatech-study-obsidian-link';
+export const EKATECH_STUDY_LINK_EXTENSION = 'ekastudyconnect';
+export const EKATECH_STUDY_LINK_MIME = 'application/vnd.ekatech.study-link+json';
+export const EKATECH_STUDY_CALLBACK = 'obsidian://ekatech-study-link';
 export const EKATECH_STUDY_MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 export const EKATECH_STUDY_MAX_PACKAGE_SOURCE_BYTES = 120 * 1024 * 1024;
+
+export interface EkatechStudyLinkPackage {
+	version: 1;
+	type: typeof EKATECH_STUDY_LINK_TYPE;
+	source: 'obsidian-album-gallery';
+	createdAt: string;
+	callback: typeof EKATECH_STUDY_CALLBACK;
+	nonce: string;
+}
 
 export interface EkatechStudyImportQuestion {
 	id: string;
@@ -46,9 +59,19 @@ export function createEkatechStudyLinkNonce(): string {
 	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
 }
 
+export function createEkatechStudyLinkPackage(nonce: string): EkatechStudyLinkPackage {
+	return {
+		version: 1,
+		type: EKATECH_STUDY_LINK_TYPE,
+		source: 'obsidian-album-gallery',
+		createdAt: new Date().toISOString(),
+		callback: EKATECH_STUDY_CALLBACK,
+		nonce,
+	};
+}
+
 export function createEkatechStudyConnectURL(nonce: string): string {
-	const callback = 'obsidian://ekatech-study-link';
-	return `ekatechstudy://obsidian/connect?callback=${encodeURIComponent(callback)}&nonce=${encodeURIComponent(nonce)}`;
+	return `ekatechstudy://obsidian/connect?callback=${encodeURIComponent(EKATECH_STUDY_CALLBACK)}&nonce=${encodeURIComponent(nonce)}`;
 }
 
 export function arrayBufferToBase64(buffer: ArrayBuffer): string {
