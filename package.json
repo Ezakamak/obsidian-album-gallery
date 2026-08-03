@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-album-gallery",
-	"version": "0.1.0",
-	"description": "A fast file-based album gallery plugin for Obsidian.",
+	"version": "0.2.0",
+	"description": "An Apple Photos-inspired managed album gallery plugin for Obsidian.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
@@ -14,7 +14,8 @@
 		"obsidian",
 		"gallery",
 		"album",
-		"photos"
+		"photos",
+		"ios"
 	],
 	"license": "MIT",
 	"devDependencies": {
