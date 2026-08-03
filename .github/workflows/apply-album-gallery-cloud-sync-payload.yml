@@ -23,15 +23,32 @@ jobs:
       - name: Restore implementation payload
         run: |
           set -euo pipefail
-          cat \
+          check_chunk() {
+            local path="$1"
+            local expected="$2"
+            local actual
+            actual="$(tr -d '\r\n' < "$path" | sha256sum | cut -d' ' -f1)"
+            echo "$path $actual"
+            test "$actual" = "$expected"
+          }
+          check_chunk .github/obsidian-sync-payload/part-00.txt a1b94f6907180eeb6c1f9d883a0afab478c44108feb87c160ce1d1bbf5922068
+          check_chunk .github/obsidian-sync-payload/part-01a.txt 4db79f5574a74031197cdf00bf5d6bf58d5530ed2a88427909b257b74fa09cd9
+          check_chunk .github/obsidian-sync-payload/part-01b.txt 71f105f89d8938a50cf97a8b0c2ecfde08c4ea60bee80247068f302a44960227
+          check_chunk .github/obsidian-sync-payload/part-02.txt 8572e695e4b95c2197f55084b3349763cac567d651671286a4d5baeafa95eb21
+          check_chunk .github/obsidian-sync-payload/part-03.txt 82dd3e6ac6368f29d15f986914c911932c4a8a043088b578730f2b2ee557b169
+          check_chunk .github/obsidian-sync-payload/part-04.txt 18b063a12d5c0825f35e586442fa16b9bca60475661b6ea206a0faffa91c5452
+          : > /tmp/album-gallery-cloud-sync.b64
+          for part in \
             .github/obsidian-sync-payload/part-00.txt \
             .github/obsidian-sync-payload/part-01a.txt \
             .github/obsidian-sync-payload/part-01b.txt \
             .github/obsidian-sync-payload/part-02.txt \
             .github/obsidian-sync-payload/part-03.txt \
-            .github/obsidian-sync-payload/part-04.txt \
-            > /tmp/album-gallery-cloud-sync.b64
+            .github/obsidian-sync-payload/part-04.txt; do
+            tr -d '\r\n' < "$part" >> /tmp/album-gallery-cloud-sync.b64
+          done
           base64 -d /tmp/album-gallery-cloud-sync.b64 > /tmp/album-gallery-cloud-sync.tgz
+          echo 'd9bb9f3dae6c09d526946c6c6d8d5cd729cb82ec5d590af9923fb3ef8f9999ff  /tmp/album-gallery-cloud-sync.tgz' | sha256sum -c -
           tar -tzf /tmp/album-gallery-cloud-sync.tgz > /tmp/payload-files.txt
           grep -q '^src/main.ts$' /tmp/payload-files.txt
           grep -q '^src/gallery-view.ts$' /tmp/payload-files.txt
