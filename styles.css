@@ -830,3 +830,95 @@
     padding-right: 16px;
   }
 }
+
+
+/* Ekatech Study local handoff */
+.album-gallery-library-actions,
+.album-gallery-album-name-row,
+.album-gallery-study-button,
+.album-gallery-export-study-button {
+	display: flex;
+	align-items: center;
+}
+
+.album-gallery-library-actions {
+	gap: 8px;
+}
+
+.album-gallery-study-button,
+.album-gallery-export-study-button {
+	min-height: 44px;
+	gap: 7px;
+	padding: 8px 13px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 999px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+}
+
+.album-gallery-study-button.is-connected,
+.album-gallery-export-study-button {
+	border-color: color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+	background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-secondary));
+	color: var(--interactive-accent);
+}
+
+.album-gallery-study-button svg,
+.album-gallery-export-study-button svg {
+	width: 18px;
+	height: 18px;
+}
+
+.album-gallery-study-album-card .album-gallery-album-cover {
+	border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--background-modifier-border));
+}
+
+.album-gallery-album-name-row {
+	min-width: 0;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.album-gallery-album-name-row h3 {
+	min-width: 0;
+}
+
+.album-gallery-study-badge {
+	flex: 0 0 auto;
+	padding: 3px 8px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+	color: var(--interactive-accent);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+}
+
+.album-gallery-export-study-button:disabled svg {
+	animation: album-gallery-spin 0.9s linear infinite;
+}
+
+@media (max-width: 700px) {
+	.album-gallery-library-actions {
+		gap: 6px;
+	}
+
+	.album-gallery-study-button {
+		width: 46px;
+		height: 46px;
+		padding: 0;
+		justify-content: center;
+	}
+
+	.album-gallery-study-button span,
+	.album-gallery-export-study-button span {
+		display: none;
+	}
+
+	.album-gallery-export-study-button {
+		width: 44px;
+		height: 44px;
+		padding: 0;
+		justify-content: center;
+	}
+}

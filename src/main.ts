@@ -15,6 +15,10 @@ import {
 import { AlbumGalleryView } from './gallery-view';
 import { createGalleryDocument, serializeGalleryDocument } from './model';
 import {
+	createEkatechStudyConnectURL,
+	createEkatechStudyLinkNonce,
+} from './ekatech-study';
+import {
 	AlbumGallerySettings,
 	AlbumGallerySettingTab,
 	DEFAULT_SETTINGS,
@@ -31,6 +35,9 @@ export default class AlbumGalleryPlugin extends Plugin {
 			(leaf) => new AlbumGalleryView(leaf, this),
 		);
 		this.registerExtensions([GALLERY_EXTENSION], GALLERY_VIEW_TYPE);
+		this.registerObsidianProtocolHandler('ekatech-study-link', (params) => {
+			void this.completeEkatechStudyLink(params);
+		});
 
 		this.addRibbonIcon('images', 'Create gallery', () => {
 			void this.createGalleryFile();
@@ -71,6 +78,38 @@ export default class AlbumGalleryPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+	}
+
+	beginEkatechStudyLink(): void {
+		const nonce = createEkatechStudyLinkNonce();
+		this.settings.ekatechStudyPendingNonce = nonce;
+		void this.saveSettings();
+		window.open(createEkatechStudyConnectURL(nonce), '_blank', 'noopener,noreferrer');
+		new Notice('Ekatech Study opened. Approve the connection in the app.');
+	}
+
+	private async completeEkatechStudyLink(params: Record<string, string>): Promise<void> {
+		const nonce = params.nonce?.trim() ?? '';
+		if (!nonce || nonce !== this.settings.ekatechStudyPendingNonce) {
+			new Notice('Ekatech Study connection could not be verified. Try connecting again.');
+			return;
+		}
+		if (params.status !== 'connected') {
+			new Notice(params.message || 'Ekatech Study connection was not completed.');
+			return;
+		}
+
+		this.settings.ekatechStudyLinked = true;
+		this.settings.ekatechStudyAccountLabel = params.account?.trim() ?? '';
+		this.settings.ekatechStudyPendingNonce = '';
+		await this.saveSettings();
+
+		for (const leaf of this.app.workspace.getLeavesOfType(GALLERY_VIEW_TYPE)) {
+			if (leaf.view instanceof AlbumGalleryView) {
+				leaf.view.ensureEkatechStudyAlbum();
+			}
+		}
+		new Notice('Ekatech Study connected. Hata Defteri album is ready.');
 	}
 
 	refreshOpenGalleryViews(): void {

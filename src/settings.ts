@@ -6,11 +6,17 @@ export type GalleryDefaultTab = 'photos' | 'albums';
 export interface AlbumGallerySettings {
 	batchSize: number;
 	defaultTab: GalleryDefaultTab;
+	ekatechStudyLinked: boolean;
+	ekatechStudyAccountLabel: string;
+	ekatechStudyPendingNonce: string;
 }
 
 export const DEFAULT_SETTINGS: AlbumGallerySettings = {
 	batchSize: 100,
 	defaultTab: 'photos',
+	ekatechStudyLinked: false,
+	ekatechStudyAccountLabel: '',
+	ekatechStudyPendingNonce: '',
 };
 
 export class AlbumGallerySettingTab extends PluginSettingTab {
@@ -23,6 +29,15 @@ export class AlbumGallerySettingTab extends PluginSettingTab {
 
 	display(): void {
 		this.containerEl.empty();
+
+		new Setting(this.containerEl)
+			.setName('Ekatech Study')
+			.setDesc(this.plugin.settings.ekatechStudyLinked
+				? `Connected${this.plugin.settings.ekatechStudyAccountLabel ? ` as ${this.plugin.settings.ekatechStudyAccountLabel}` : ''}. Photos are handed to Study locally through iOS; they are not uploaded by this plugin.`
+				: 'Connect the Ekatech Study app to create a managed Hata Defteri album and transfer selected questions locally.')
+			.addButton((button) => button
+				.setButtonText(this.plugin.settings.ekatechStudyLinked ? 'Reconnect' : 'Connect')
+				.onClick(() => this.plugin.beginEkatechStudyLink()));
 
 		new Setting(this.containerEl)
 			.setName('Default tab')

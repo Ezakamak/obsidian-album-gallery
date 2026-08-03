@@ -83,7 +83,7 @@ export function mimeTypeForImageName(filename: string): string {
 
 export function safeExportFilename(value: string): string {
 	const normalized = value
-		.replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-')
+		.replace(/[\\/:*?"<>|]/g, '-')
 		.replace(/\s+/g, ' ')
 		.trim()
 		.slice(0, 80);

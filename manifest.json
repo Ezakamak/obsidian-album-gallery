@@ -1,7 +1,7 @@
 {
   "id": "album-gallery",
   "name": "Album Gallery",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "minAppVersion": "1.8.0",
   "description": "Create Apple Photos-inspired galleries with automatically managed album storage.",
   "author": "Emir",

@@ -28,6 +28,19 @@ import {
 	serializeGalleryDocument,
 	sortImages,
 } from './model';
+import {
+	EKATECH_STUDY_ALBUM_KIND,
+	EKATECH_STUDY_ALBUM_NAME,
+	EKATECH_STUDY_IMPORT_EXTENSION,
+	EKATECH_STUDY_IMPORT_MIME,
+	EKATECH_STUDY_IMPORT_TYPE,
+	EKATECH_STUDY_MAX_IMAGE_BYTES,
+	EKATECH_STUDY_MAX_PACKAGE_SOURCE_BYTES,
+	EkatechStudyImportPackage,
+	arrayBufferToBase64,
+	mimeTypeForImageName,
+	safeExportFilename,
+} from './ekatech-study';
 import type AlbumGalleryPlugin from './main';
 import type { GalleryDefaultTab } from './settings';
 
@@ -45,6 +58,7 @@ export class AlbumGalleryView extends TextFileView {
 	private observer: IntersectionObserver | null = null;
 	private refreshTimer: number | null = null;
 	private importingAlbumId: string | null = null;
+	private exportingAlbumId: string | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: AlbumGalleryPlugin) {
 		super(leaf);
@@ -80,6 +94,10 @@ export class AlbumGalleryView extends TextFileView {
 		let shouldSave = !isGalleryDocumentV2(data);
 		if (this.file && this.document.title !== this.file.basename) {
 			this.document.title = this.file.basename;
+			shouldSave = true;
+		}
+		if (this.plugin.settings.ekatechStudyLinked && !this.findEkatechStudyAlbum()) {
+			this.document.albums.unshift(createGalleryAlbum(EKATECH_STUDY_ALBUM_NAME, EKATECH_STUDY_ALBUM_KIND));
 			shouldSave = true;
 		}
 
@@ -144,7 +162,28 @@ export class AlbumGalleryView extends TextFileView {
 			text: `${allImages.length} ${allImages.length === 1 ? 'photo' : 'photos'} · ${this.document.albums.length} ${this.document.albums.length === 1 ? 'album' : 'albums'}`,
 		});
 
-		const createButton = header.createEl('button', {
+		const headerActions = header.createDiv({ cls: 'album-gallery-library-actions' });
+		const studyButton = headerActions.createEl('button', {
+			cls: `album-gallery-study-button${this.plugin.settings.ekatechStudyLinked ? ' is-connected' : ''}`,
+			attr: {
+				type: 'button',
+				'aria-label': this.plugin.settings.ekatechStudyLinked ? 'Open Study Hata Defteri' : 'Connect Ekatech Study',
+			},
+		});
+		setIcon(studyButton, this.plugin.settings.ekatechStudyLinked ? 'badge-check' : 'graduation-cap');
+		studyButton.createSpan({ text: this.plugin.settings.ekatechStudyLinked ? 'Study' : 'Connect Study' });
+		studyButton.addEventListener('click', () => {
+			if (!this.plugin.settings.ekatechStudyLinked) {
+				this.plugin.beginEkatechStudyLink();
+				return;
+			}
+			const album = this.ensureEkatechStudyAlbum();
+			this.activeTab = 'albums';
+			this.activeAlbumId = album.id;
+			this.render();
+		});
+
+		const createButton = headerActions.createEl('button', {
 			cls: 'album-gallery-round-button mod-cta',
 			attr: { type: 'button', 'aria-label': 'Create album' },
 		});
@@ -245,7 +284,10 @@ export class AlbumGalleryView extends TextFileView {
 	}
 
 	private renderAlbumCard(container: HTMLElement, album: GalleryAlbum): void {
-		const card = container.createDiv({ cls: 'album-gallery-album-card' });
+		const isStudyAlbum = album.kind === EKATECH_STUDY_ALBUM_KIND;
+		const card = container.createDiv({
+			cls: `album-gallery-album-card${isStudyAlbum ? ' album-gallery-study-album-card' : ''}`,
+		});
 		card.setAttr('role', 'button');
 		card.setAttr('tabindex', '0');
 		card.setAttr('aria-label', `Open ${album.name}`);
@@ -259,7 +301,12 @@ export class AlbumGalleryView extends TextFileView {
 		}
 
 		const details = card.createDiv({ cls: 'album-gallery-album-details' });
-		details.createEl('h3', { text: album.name });
+		const nameRow = details.createDiv({ cls: 'album-gallery-album-name-row' });
+		nameRow.createEl('h3', { text: album.name });
+		if (isStudyAlbum) {
+			const badge = nameRow.createSpan({ cls: 'album-gallery-study-badge', text: 'Study' });
+			badge.setAttr('aria-label', 'Ekatech Study Hata Defteri');
+		}
 		details.createDiv({
 			cls: 'album-gallery-album-count',
 			text: `${album.images.length} ${album.images.length === 1 ? 'photo' : 'photos'}`,
@@ -301,6 +348,18 @@ export class AlbumGalleryView extends TextFileView {
 		});
 
 		const actions = header.createDiv({ cls: 'album-gallery-album-actions' });
+		if (album.kind === EKATECH_STUDY_ALBUM_KIND) {
+			const exportButton = actions.createEl('button', {
+				cls: 'album-gallery-export-study-button mod-cta',
+				attr: { type: 'button', 'aria-label': 'Send questions to Ekatech Study' },
+			});
+			setIcon(exportButton, this.exportingAlbumId === album.id ? 'loader-circle' : 'send');
+			exportButton.createSpan({ text: this.exportingAlbumId === album.id ? 'Preparing…' : 'Send to Study' });
+			exportButton.disabled = this.exportingAlbumId !== null;
+			exportButton.addEventListener('click', () => {
+				void this.exportAlbumToEkatechStudy(album);
+			});
+		}
 		const addButton = actions.createEl('button', {
 			cls: 'album-gallery-add-photos-button mod-cta',
 			attr: { type: 'button' },
@@ -472,16 +531,148 @@ export class AlbumGalleryView extends TextFileView {
 			.setTitle('Add photos')
 			.setIcon('image-plus')
 			.onClick(() => this.openPhotoPicker(album.id)));
-		menu.addItem((item) => item
-			.setTitle('Rename album')
-			.setIcon('pencil')
-			.onClick(() => this.openRenameAlbumModal(album)));
-		menu.addSeparator();
-		menu.addItem((item) => item
-			.setTitle('Delete album')
-			.setIcon('trash-2')
-			.onClick(() => this.confirmDeleteAlbum(album)));
+		if (album.kind === EKATECH_STUDY_ALBUM_KIND) {
+			menu.addItem((item) => item
+				.setTitle('Send to Ekatech Study')
+				.setIcon('send')
+				.onClick(() => { void this.exportAlbumToEkatechStudy(album); }));
+		} else {
+			menu.addItem((item) => item
+				.setTitle('Rename album')
+				.setIcon('pencil')
+				.onClick(() => this.openRenameAlbumModal(album)));
+			menu.addSeparator();
+			menu.addItem((item) => item
+				.setTitle('Delete album')
+				.setIcon('trash-2')
+				.onClick(() => this.confirmDeleteAlbum(album)));
+		}
 		menu.showAtMouseEvent(event);
+	}
+
+	public ensureEkatechStudyAlbum(): GalleryAlbum {
+		const existing = this.findEkatechStudyAlbum();
+		if (existing) {
+			return existing;
+		}
+		const album = createGalleryAlbum(EKATECH_STUDY_ALBUM_NAME, EKATECH_STUDY_ALBUM_KIND);
+		this.document.albums.unshift(album);
+		this.requestSave();
+		this.render();
+		return album;
+	}
+
+	private findEkatechStudyAlbum(): GalleryAlbum | undefined {
+		return this.document.albums.find((album) => album.kind === EKATECH_STUDY_ALBUM_KIND);
+	}
+
+	private async exportAlbumToEkatechStudy(album: GalleryAlbum): Promise<void> {
+		if (!this.plugin.settings.ekatechStudyLinked) {
+			this.plugin.beginEkatechStudyLink();
+			return;
+		}
+		if (album.kind !== EKATECH_STUDY_ALBUM_KIND) {
+			new Notice('Only the Hata Defteri album can be sent to Ekatech Study.');
+			return;
+		}
+		const references = this.getAlbumReferences(album);
+		if (references.length === 0) {
+			new Notice('Add at least one question photo before sending.');
+			return;
+		}
+		if (this.exportingAlbumId !== null) {
+			return;
+		}
+
+		this.exportingAlbumId = album.id;
+		this.render();
+		try {
+			let sourceBytes = 0;
+			const questions: EkatechStudyImportPackage['questions'] = [];
+			for (let index = 0; index < references.length; index += 1) {
+				const reference = references[index];
+				if (!reference) {
+					continue;
+				}
+				const file = this.app.vault.getFileByPath(reference.image.path);
+				if (!file) {
+					throw new Error(`Missing photo: ${reference.image.name}`);
+				}
+				if (file.stat.size > EKATECH_STUDY_MAX_IMAGE_BYTES) {
+					throw new Error(`${file.name} is larger than the 20 MB local transfer limit.`);
+				}
+				sourceBytes += file.stat.size;
+				if (sourceBytes > EKATECH_STUDY_MAX_PACKAGE_SOURCE_BYTES) {
+					throw new Error('The selected questions exceed the 120 MB local transfer limit. Send them in smaller groups.');
+				}
+				const data = await this.app.vault.readBinary(file);
+				questions.push({
+					id: reference.image.id,
+					title: `Soru ${index + 1}`,
+					originalName: reference.image.name,
+					mimeType: mimeTypeForImageName(reference.image.name),
+					dataBase64: arrayBufferToBase64(data),
+				});
+			}
+
+			const payload: EkatechStudyImportPackage = {
+				version: 1,
+				type: EKATECH_STUDY_IMPORT_TYPE,
+				source: 'obsidian-album-gallery',
+				createdAt: new Date().toISOString(),
+				gallery: {
+					id: this.document.id,
+					title: this.document.title,
+					fileName: this.file?.name ?? `${this.document.title}.gallery`,
+				},
+				album: { id: album.id, name: album.name },
+				defaults: {
+					examType: 'TYT',
+					lessonID: '',
+					topicID: '',
+					sourceName: 'Obsidian ile aktarıldı',
+					questionNote: 'Obsidian ile aktarıldı',
+					reviewIntervalDays: 7,
+				},
+				questions,
+			};
+
+			const filename = `${safeExportFilename(this.document.title)}.${EKATECH_STUDY_IMPORT_EXTENSION}`;
+			const json = JSON.stringify(payload);
+			const transferFile = new File([json], filename, { type: EKATECH_STUDY_IMPORT_MIME });
+			const shareData: ShareData = {
+				files: [transferFile],
+				title: 'Ekatech Study Hata Defteri',
+				text: `${questions.length} soru Ekatech Study için hazır.`,
+			};
+			const canShare = typeof navigator.share === 'function'
+				&& (typeof navigator.canShare !== 'function' || navigator.canShare(shareData));
+			if (canShare) {
+				await navigator.share(shareData);
+				new Notice(`${questions.length} question${questions.length === 1 ? '' : 's'} handed to Ekatech Study locally.`);
+			} else {
+				const exportFolder = 'Album Gallery Exports';
+				await this.ensureFolder(exportFolder);
+				const exportPath = normalizePath(`${exportFolder}/${filename}`);
+				const existing = this.app.vault.getAbstractFileByPath(exportPath);
+				if (existing) {
+					await this.app.fileManager.trashFile(existing);
+				}
+				const encoded = new TextEncoder().encode(json);
+				const binary = Uint8Array.from(encoded).buffer;
+				await this.app.vault.createBinary(exportPath, binary);
+				new Notice(`Local transfer package saved to ${exportPath}. Share it with Ekatech Study.`);
+			}
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') {
+				return;
+			}
+			console.error('Album Gallery could not prepare the Ekatech Study transfer', error);
+			new Notice(error instanceof Error ? error.message : 'Ekatech Study transfer could not be prepared.');
+		} finally {
+			this.exportingAlbumId = null;
+			this.render();
+		}
 	}
 
 	private openPhotoPicker(albumId: string): void {
