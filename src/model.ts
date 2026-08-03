@@ -1,4 +1,5 @@
 export type GallerySort = 'added-desc' | 'added-asc' | 'name-asc' | 'name-desc';
+export type GalleryAlbumKind = 'standard' | 'ekatech-study-mistakes';
 
 export interface GalleryImage {
 	id: string;
@@ -12,6 +13,7 @@ export interface GalleryAlbum {
 	name: string;
 	images: GalleryImage[];
 	coverImageId?: string;
+	kind?: GalleryAlbumKind;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -50,12 +52,13 @@ export function createGalleryDocument(title: string): GalleryDocument {
 	};
 }
 
-export function createGalleryAlbum(name: string): GalleryAlbum {
+export function createGalleryAlbum(name: string, kind: GalleryAlbumKind = 'standard'): GalleryAlbum {
 	const now = Date.now();
 	return {
 		id: createId(),
 		name,
 		images: [],
+		...(kind !== 'standard' ? { kind } : {}),
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -141,12 +144,17 @@ function parseAlbum(value: unknown): GalleryAlbum | null {
 	const createdAt = readFiniteNumber(value.createdAt) ?? Date.now();
 	const updatedAt = readFiniteNumber(value.updatedAt) ?? createdAt;
 	const coverImageId = readNonEmptyString(value.coverImageId);
+	const kindValue = readNonEmptyString(value.kind);
+	const kind: GalleryAlbumKind = kindValue === 'ekatech-study-mistakes'
+		? 'ekatech-study-mistakes'
+		: 'standard';
 
 	return {
 		id,
 		name,
 		images,
 		...(coverImageId ? { coverImageId } : {}),
+		...(kind !== 'standard' ? { kind } : {}),
 		createdAt,
 		updatedAt,
 	};

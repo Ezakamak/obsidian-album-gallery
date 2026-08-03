@@ -81,6 +81,12 @@ Required files:
 
 Enable **Album Gallery** under **Settings → Community plugins**, then reload Obsidian.
 
+## Ekatech Study local handoff
+
+Album Gallery can connect to the Ekatech Study iOS app without copying account tokens into Obsidian. After approval in Study, each gallery receives a managed **Hata Defteri** album. **Send to Study** packages the album photos locally as numbered questions and opens the iOS share sheet. Ekatech Study imports the package into its existing batch mistake editor, where lesson, topic, mistake information, and review interval remain editable before saving.
+
+The transfer package is passed device-to-device through iOS document sharing. Album Gallery does not upload these photos to a cloud service.
+
 ## Local development
 
 ```bash
