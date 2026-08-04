@@ -2,6 +2,14 @@
 
 All notable changes to Album Gallery are documented here.
 
+## 0.6.11
+
+### Fixed
+
+- Gallery titles now update immediately when the backing gallery file is renamed
+- The synchronized title is persisted only when the filename actually changes, preventing save loops
+- Added a permanent release check for instant filename-to-title synchronization
+
 ## 0.6.10
 
 ### Changed

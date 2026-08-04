@@ -50,6 +50,7 @@ const styles = await readText('styles.css');
 const readme = await readText('README.md');
 const privacy = await readText('PRIVACY.md');
 const releasing = await readText('RELEASING.md');
+const galleryViewSource = await readText('src/gallery-view.ts');
 
 const semverPattern = /^\d+\.\d+\.\d+$/;
 const pluginIdPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -122,5 +123,28 @@ for (const marker of disclosureMarkers) {
 if (!privacy.includes('https://ekatech.net')) fail('PRIVACY.md must disclose the Ekatech Study network host.');
 if (!privacy.includes('does not upload normal album content')) fail('PRIVACY.md must disclose that normal albums remain local.');
 if (!releasing.includes('main.js') || !releasing.includes('manifest.json') || !releasing.includes('styles.css')) fail('RELEASING.md must list all required release assets.');
+
+const titleSyncMarkers = [
+  'private syncTitleWithFileName(): boolean',
+  'const fileTitle = this.file?.basename;',
+  'if (!fileTitle || this.document.title === fileTitle) return false;',
+  'this.document.title = fileTitle;',
+  'if (this.syncTitleWithFileName()) shouldSave = true;',
+  'const titleChanged = this.syncTitleWithFileName();',
+  'if (titleChanged) this.requestSave();',
+];
+for (const marker of titleSyncMarkers) {
+  if (!galleryViewSource.includes(marker)) fail(`Instant gallery-title synchronization marker is missing: ${marker}`);
+}
+const titleRefreshStart = galleryViewSource.indexOf('requestVaultRefresh(): void');
+const titleRefreshEnd = galleryViewSource.indexOf('public activateEkatechStudyAlbum', titleRefreshStart);
+if (titleRefreshStart < 0 || titleRefreshEnd < 0) fail('Could not locate requestVaultRefresh() for title synchronization validation.');
+const titleRefreshBlock = galleryViewSource.slice(titleRefreshStart, titleRefreshEnd);
+const titleSyncIndex = titleRefreshBlock.indexOf('const titleChanged = this.syncTitleWithFileName();');
+const titleRenderIndex = titleRefreshBlock.indexOf('this.render();');
+const titleSaveIndex = titleRefreshBlock.indexOf('if (titleChanged) this.requestSave();');
+if (!(titleSyncIndex >= 0 && titleRenderIndex > titleSyncIndex && titleSaveIndex > titleRenderIndex)) {
+  fail('Rename refresh must synchronize the title, render immediately, then persist only when changed.');
+}
 
 
