@@ -5,6 +5,7 @@ const MANIFEST_PATH = 'manifest.json';
 const PACKAGE_PATH = 'package.json';
 const VERSIONS_PATH = 'versions.json';
 const CHANGELOG_PATH = 'CHANGELOG.md';
+const GALLERY_VIEW_PATH = 'src/gallery-view.ts';
 const VALIDATOR_PATH = 'scripts/validate-mobile-grid.mjs';
 const VERSION = '0.6.5';
 const MIN_APP_VERSION = '1.8.0';
@@ -79,6 +80,10 @@ if (previousStart >= 0) {
 }
 fs.writeFileSync(STYLE_PATH, `${styles}\n\n${restoredGridCss}\n`);
 
+let galleryView = fs.readFileSync(GALLERY_VIEW_PATH, 'utf8');
+galleryView = galleryView.replace('\n\tTFile,', '');
+fs.writeFileSync(GALLERY_VIEW_PATH, galleryView);
+
 const manifest = readJson(MANIFEST_PATH);
 manifest.version = VERSION;
 writeJson(MANIFEST_PATH, manifest);
@@ -128,7 +133,7 @@ console.log('Album Gallery proven two-column mobile media grid validation passed
 fs.writeFileSync(VALIDATOR_PATH, validator);
 
 let changelog = fs.readFileSync(CHANGELOG_PATH, 'utf8');
-const releaseNotes = `## 0.6.5\n\n### Fixed\n\n- Restored the proven two-column iPhone media grid from the correctly working 0.6.2 package\n- Restored square photo, GIF, and video cards with full-width cover cropping\n- Prevented Obsidian mobile button and intrinsic media sizing from collapsing previews into strips\n- Added a permanent release validation that rejects removal of the mobile grid contract or the failed absolute-position workaround\n\n`;
+const releaseNotes = `## 0.6.5\n\n### Fixed\n\n- Restored the proven two-column iPhone media grid from the correctly working 0.6.2 package\n- Restored square photo, GIF, and video cards with full-width cover cropping\n- Prevented Obsidian mobile button and intrinsic media sizing from collapsing previews into strips\n- Added a permanent release validation that rejects removal of the mobile grid contract or the failed absolute-position workaround\n- Removed the stale unused TFile import that blocked the repository lint gate\n\n`;
 if (!changelog.includes('## 0.6.5')) {
 	const insertionPoint = changelog.indexOf('## 0.6.4');
 	if (insertionPoint < 0) throw new Error('Could not find the 0.6.4 changelog section.');
