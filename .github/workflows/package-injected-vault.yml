@@ -1,0 +1,114 @@
+name: Package injected Album Gallery vault
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - packaging/input/**
+      - .github/workflows/package-injected-vault.yml
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Inject published 0.6.4 into test vault
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out packaging branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct and verify source vault
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            packaging/input/part-00 \
+            packaging/input/part-01 \
+            packaging/input/part-02 \
+            packaging/input/part-03 \
+            packaging/input/part-04 \
+            packaging/input/part-05 \
+            packaging/input/part-06 \
+            packaging/input/part-07-00 \
+            packaging/input/part-07-01 \
+            packaging/input/part-07-02 \
+            packaging/input/part-07-03 \
+            packaging/input/part-08 \
+            | base64 --decode > /tmp/input-vault.zip
+
+          echo "285a8d1c023a260b5e7edc1cecbc232d0c3af86eb5737a54ec505dc64747b452  /tmp/input-vault.zip" | sha256sum --check --strict
+          unzip -t /tmp/input-vault.zip
+          mkdir -p /tmp/vault
+          unzip -q /tmp/input-vault.zip -d /tmp/vault
+
+      - name: Replace old plugin with published 0.6.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+
+          plugin_dir="/tmp/vault/Plugin Deneme/.obsidian/plugins/album-gallery"
+          test -d "$plugin_dir"
+
+          old_main_sha="$(sha256sum "$plugin_dir/main.js" | cut -d' ' -f1)"
+          old_manifest_sha="$(sha256sum "$plugin_dir/manifest.json" | cut -d' ' -f1)"
+          old_styles_sha="$(sha256sum "$plugin_dir/styles.css" | cut -d' ' -f1)"
+
+          test "$old_main_sha" = "2f97093d84e1132f82e9db64abc0377c0802477095d31bb0df29fdbe9e28be50"
+          test "$old_manifest_sha" = "577da558518160b7da9050caf4b38dca100048d1749ee6726505eff68e0f1c58"
+          test "$old_styles_sha" = "6f86fe9a8e706f5294884c65208bdeb4a99cbc0bd32e51ca80edf92c87ea9c45"
+
+          rm -f "$plugin_dir/main.js" "$plugin_dir/manifest.json" "$plugin_dir/styles.css"
+          git show 0.6.4:main.js > "$plugin_dir/main.js"
+          git show 0.6.4:manifest.json > "$plugin_dir/manifest.json"
+          git show 0.6.4:styles.css > "$plugin_dir/styles.css"
+
+          version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$plugin_dir/manifest.json")"
+          test "$version" = "0.6.4"
+          node --check "$plugin_dir/main.js"
+
+          new_main_sha="$(sha256sum "$plugin_dir/main.js" | cut -d' ' -f1)"
+          new_manifest_sha="$(sha256sum "$plugin_dir/manifest.json" | cut -d' ' -f1)"
+          new_styles_sha="$(sha256sum "$plugin_dir/styles.css" | cut -d' ' -f1)"
+
+          test "$new_main_sha" != "$old_main_sha"
+          test "$new_manifest_sha" != "$old_manifest_sha"
+          test "$new_styles_sha" != "$old_styles_sha"
+
+          cat > /tmp/injection-report.txt <<REPORT
+          Source vault SHA-256: 285a8d1c023a260b5e7edc1cecbc232d0c3af86eb5737a54ec505dc64747b452
+          Plugin path: Plugin Deneme/.obsidian/plugins/album-gallery
+          Removed version: 0.6.2
+          Injected version: $version
+          Published tag: 0.6.4
+          main.js SHA-256: $new_main_sha
+          manifest.json SHA-256: $new_manifest_sha
+          styles.css SHA-256: $new_styles_sha
+          JavaScript syntax: valid
+          REPORT
+
+      - name: Create and verify final vault ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="/tmp/Plugin_Deneme_0.6.4_Yeni_Enjekte_Publish_Hazir.zip"
+          cd /tmp/vault
+          zip -qr "$output" "Plugin Deneme"
+          unzip -t "$output"
+          sha256sum "$output" | tee -a /tmp/injection-report.txt
+
+      - name: Upload final vault
+        uses: actions/upload-artifact@v4
+        with:
+          name: Plugin-Deneme-0.6.4-Publish-Hazir
+          path: |
+            /tmp/Plugin_Deneme_0.6.4_Yeni_Enjekte_Publish_Hazir.zip
+            /tmp/injection-report.txt
+          if-no-files-found: error
+          retention-days: 1
