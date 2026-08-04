@@ -361,6 +361,75 @@
 	color: var(--text-error);
 }
 
+.album-gallery-view::after {
+	content: 'Album Gallery · Ekatech';
+	display: block;
+	margin: 30px auto 2px;
+	color: var(--text-faint);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-align: center;
+	text-transform: uppercase;
+	user-select: none;
+	pointer-events: none;
+}
+
+.album-gallery-brand-footer {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 12px;
+	margin-top: 28px;
+	padding: 14px 0 2px;
+	border-top: 1px solid var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.album-gallery-brand-mark {
+	display: grid;
+	place-items: center;
+	width: 34px;
+	height: 34px;
+	border-radius: 11px;
+	background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+	color: var(--interactive-accent);
+}
+
+.album-gallery-brand-mark svg {
+	width: 18px;
+	height: 18px;
+}
+
+.album-gallery-brand-identity {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+
+.album-gallery-brand-identity strong {
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+}
+
+.album-gallery-brand-identity span,
+.album-gallery-brand-link {
+	font-size: var(--font-ui-smaller);
+}
+
+.album-gallery-brand-link {
+	padding: 7px 10px;
+	border-radius: 999px;
+	color: var(--text-muted);
+	text-decoration: none;
+}
+
+.album-gallery-brand-link:hover,
+.album-gallery-brand-link:focus-visible {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
 @media (max-width: 700px) {
 	.album-gallery-view {
 		padding: 16px 12px calc(22px + env(safe-area-inset-bottom));
@@ -409,5 +478,15 @@
 		padding-right: 12px;
 		padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
 		padding-left: 12px;
+	}
+
+	.album-gallery-brand-footer {
+		grid-template-columns: auto minmax(0, 1fr);
+	}
+
+	.album-gallery-brand-link {
+		grid-column: 2;
+		justify-self: start;
+		padding-left: 0;
 	}
 }
