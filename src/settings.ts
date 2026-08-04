@@ -112,7 +112,7 @@ export class AlbumGallerySettingTab extends PluginSettingTab {
 
 		const identity = footer.createDiv({ cls: 'album-gallery-brand-identity' });
 		identity.createEl('strong', { text: 'Album Gallery' });
-		identity.createEl('span', {
+		identity.createSpan({
 			text: `Ekatech tarafından geliştirildi · v${this.plugin.manifest.version}`,
 		});
 

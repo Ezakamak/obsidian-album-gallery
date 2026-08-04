@@ -51,7 +51,7 @@ function createVideoPoster(video: HTMLVideoElement): boolean {
 	const scale = Math.min(1, maxWidth / video.videoWidth);
 	const width = Math.max(2, Math.round(video.videoWidth * scale));
 	const height = Math.max(2, Math.round(video.videoHeight * scale));
-	const canvas = document.createElement('canvas');
+	const canvas = createEl('canvas');
 	canvas.width = width;
 	canvas.height = height;
 	const context = canvas.getContext('2d', {
@@ -61,7 +61,7 @@ function createVideoPoster(video: HTMLVideoElement): boolean {
 	if (!context) return false;
 	context.drawImage(video, 0, 0, width, height);
 
-	const sampleCanvas = document.createElement('canvas');
+	const sampleCanvas = createEl('canvas');
 	sampleCanvas.width = Math.min(24, width);
 	sampleCanvas.height = Math.min(24, height);
 	const sampleContext = sampleCanvas.getContext('2d', {
@@ -168,7 +168,7 @@ export function installVideoPreviewThumbnails(view: AlbumGalleryView): void {
 		const renderedVideo = result instanceof HTMLVideoElement
 			? result
 			: Array.from(container.children).find((element): element is HTMLVideoElement => (
-				element instanceof HTMLVideoElement && !existingElements.has(element)
+				element.instanceOf(HTMLVideoElement) && !existingElements.has(element)
 			));
 		if (renderedVideo) prepareVideoPreview(renderedVideo);
 		return result;

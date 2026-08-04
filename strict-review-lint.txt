@@ -1,0 +1,78 @@
+
+> obsidian-album-gallery@0.6.9 lint
+> eslint . --max-warnings=0
+
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/esbuild.config.mjs
+  2:1  warning  Do not import Node.js built-in module "process". Node.js APIs are not available on mobile. Use a dynamic import() or require() guarded by Platform.isDesktop instead           obsidianmd/no-nodejs-modules
+  3:1  warning  Do not import Node.js built-in module "node:module". Node.js APIs are not available on mobile. Use a dynamic import() or require() guarded by Platform.isDesktop instead       obsidianmd/no-nodejs-modules
+  4:1  warning  Do not import Node.js built-in module "node:fs/promises". Node.js APIs are not available on mobile. Use a dynamic import() or require() guarded by Platform.isDesktop instead  obsidianmd/no-nodejs-modules
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/eslint.config.mts
+  0:0  error  Parsing error: /home/runner/work/obsidian-album-gallery/obsidian-album-gallery/eslint.config.mts was not found by the project service. Consider either including it in the tsconfig.json or including it in allowDefaultProject.
+allowDefaultProject is set to ["eslint.config.mjs","esbuild.config.mjs","version-bump.mjs","scripts/*.mjs","manifest.json"], which does not match 'eslint.config.mts'
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/scripts/prepare-release.mjs
+   1:1  warning  Do not import Node.js built-in module "node:fs/promises". Node.js APIs are not available on mobile. Use a dynamic import() or require() guarded by Platform.isDesktop instead  obsidianmd/no-nodejs-modules
+   2:1  warning  Do not import Node.js built-in module "node:crypto". Node.js APIs are not available on mobile. Use a dynamic import() or require() guarded by Platform.isDesktop instead       obsidianmd/no-nodejs-modules
+   3:1  warning  Do not import Node.js built-in module "node:path". Node.js APIs are not available on mobile. Use a dynamic import() or require() guarded by Platform.isDesktop instead         obsidianmd/no-nodejs-modules
+  34:1  error    [no-console] Avoid unnecessary logging to console. See https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines#Avoid+unnecessary+logging+to+console                       obsidianmd/rule-custom-message
+  36:3  error    [no-console] Avoid unnecessary logging to console. See https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines#Avoid+unnecessary+logging+to+console                       obsidianmd/rule-custom-message
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/scripts/validate-lightbox.mjs
+   1:1  warning  Do not import Node.js built-in module "node:fs". Node.js APIs are not available on mobile. Use a dynamic import() or require() guarded by Platform.isDesktop instead  obsidianmd/no-nodejs-modules
+  48:1  error    [no-console] Avoid unnecessary logging to console. See https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines#Avoid+unnecessary+logging+to+console              obsidianmd/rule-custom-message
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/scripts/validate-mobile-grid.mjs
+   1:1  warning  Do not import Node.js built-in module "node:fs". Node.js APIs are not available on mobile. Use a dynamic import() or require() guarded by Platform.isDesktop instead  obsidianmd/no-nodejs-modules
+  31:1  error    [no-console] Avoid unnecessary logging to console. See https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines#Avoid+unnecessary+logging+to+console              obsidianmd/rule-custom-message
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/scripts/validate-release.mjs
+    1:1  warning  Do not import Node.js built-in module "node:fs/promises". Node.js APIs are not available on mobile. Use a dynamic import() or require() guarded by Platform.isDesktop instead  obsidianmd/no-nodejs-modules
+  123:1  error    [no-console] Avoid unnecessary logging to console. See https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines#Avoid+unnecessary+logging+to+console                       obsidianmd/rule-custom-message
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/src/gallery-view.ts
+  323:41  warning  Use sentence case for UI text. Expected: 'Refresh study account'                                                       obsidianmd/ui/sentence-case
+  457:34  error    Promise returned in function argument where a void return was expected                                                 @typescript-eslint/no-misused-promises
+  462:15  warning  Use sentence case for UI text. Expected: 'Hata defteri varsayılanları kaydedildi.'                                     obsidianmd/ui/sentence-case
+  531:46  warning  Use sentence case for UI text. Expected: 'Bazı hata defteri fotoğrafları kuyrukta kaldı; otomatik yeniden denenecek.'  obsidianmd/ui/sentence-case
+  597:37  error    Promise returned in function argument where a void return was expected                                                 @typescript-eslint/no-misused-promises
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/src/main.ts
+   56:32  warning  Use sentence case for UI text. Expected: 'Ekatech study hesabına bağlan'                                                                                                                  obsidianmd/ui/sentence-case
+   59:10  warning  Use sentence case for UI text. Expected: 'Devam ettiğinde güvenli giriş için ekatech study web sitesine yönlendirileceksin.'                                                              obsidianmd/ui/sentence-case
+   67:10  warning  Use sentence case for UI text. Expected: 'Bu hizmet yalnızca ekatech study uygulaması müşterileri içindir.'                                                                               obsidianmd/ui/sentence-case
+   70:10  warning  Use sentence case for UI text. Expected: 'Study hesabınla giriş yaptıktan ve bağlantıyı onayladıktan sonra Obsidian’a geri dönersin. Hata defteri fotoğrafları bağlı hesabına yüklenir.'  obsidianmd/ui/sentence-case
+   81:10  warning  Use sentence case for UI text. Expected: 'Siteye Git'                                                                                                                                     obsidianmd/ui/sentence-case
+  136:10  warning  Use sentence case for UI text. Expected: 'Connect ekatech study account'                                                                                                                  obsidianmd/ui/sentence-case
+  276:17  warning  Use sentence case for UI text. Expected: 'Obsidian study oturumu sona erdi. Yeniden giriş yap.'                                                                                           obsidianmd/ui/sentence-case
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/src/media-support.ts
+  117:29  warning  Use sentence case for UI text. Expected: 'Create an album, then choose photos, animated gifs, or videos. Album gallery stores them automatically inside the vault.'        obsidianmd/ui/sentence-case
+  145:28  warning  Use sentence case for UI text. Expected: 'Choose photos, animated gifs, mp4/mov videos, or webm videos. The plugin creates and manages the storage folder automatically.'  obsidianmd/ui/sentence-case
+  277:37  error    Promise returned in function argument where a void return was expected                                                                                                     @typescript-eslint/no-misused-promises
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/src/settings.ts
+   27:14  warning  This PluginSettingTab does not implement getSettingDefinitions(); its settings will not appear in Obsidian's settings search for users on 1.13.0 or later. Consider adopting the declarative settings API  obsidianmd/settings-tab/prefer-setting-definitions
+   50:13  warning  Use sentence case for UI text. Expected: 'Ekatech study'                                                                                                                                                   obsidianmd/ui/sentence-case
+   54:40  warning  `setWarning` is deprecated. Use {@link setDestructive} for a destructive button, or
+`setDestructive().setCta()` for a destructive primary action                                                           @typescript-eslint/no-deprecated
+   56:12  warning  `display` is deprecated. Since 1.13.0. Use {@link getSettingDefinitions} instead                                                                                                                           @typescript-eslint/no-deprecated
+   71:11  warning  `display` is deprecated. Since 1.13.0. Use {@link getSettingDefinitions} instead                                                                                                                           @typescript-eslint/no-deprecated
+   92:6   warning  `setDynamicTooltip` is deprecated. The value is now always shown inline next to the slider                                                                                                                 @typescript-eslint/no-deprecated
+  105:26  warning  Use sentence case for UI text. Expected: 'Album gallery geliştirici bilgisi'                                                                                                                               obsidianmd/ui/sentence-case
+  114:39  warning  Use sentence case for UI text. Expected: 'Album gallery'                                                                                                                                                   obsidianmd/ui/sentence-case
+  126:19  warning  Use sentence case for UI text. Expected: 'Album gallery GitHub deposunu aç'                                                                                                                                obsidianmd/ui/sentence-case
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/src/study-account-manager.ts
+   36:38  warning  Use sentence case for UI text. Expected: 'Study hesap yöneticisi'                                                                          obsidianmd/ui/sentence-case
+   37:37  warning  Use sentence case for UI text. Expected: 'Obsidian hata defteri bağlantını ve aylık yükleme hakkını yönet.'                                obsidianmd/ui/sentence-case
+   91:36  error    Promise returned in function argument where a void return was expected                                                                     @typescript-eslint/no-misused-promises
+  121:10  warning  Use sentence case for UI text. Expected: 'Bu cihazdaki study oturumu kapatılacak. Normal albümlerin ve yerel fotoğrafların silinmeyecek.'  obsidianmd/ui/sentence-case
+  126:37  error    Promise returned in function argument where a void return was expected                                                                     @typescript-eslint/no-misused-promises
+
+/home/runner/work/obsidian-album-gallery/obsidian-album-gallery/version-bump.mjs
+  1:1  warning  Do not import Node.js built-in module "fs". Node.js APIs are not available on mobile. Use a dynamic import() or require() guarded by Platform.isDesktop instead  obsidianmd/no-nodejs-modules
+
+✖ 45 problems (11 errors, 34 warnings)
+
