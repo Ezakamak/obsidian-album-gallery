@@ -24,7 +24,7 @@ jobs:
       - name: Apply source-level warning fixes
         run: python3 scripts/apply-warning-cleanup-once.py
 
-      - name: Correct lint scopes for shipped code and build tooling
+      - name: Correct lint scopes and final sentence case
         shell: bash
         run: |
           cat > eslint.config.mjs <<'EOF'
@@ -85,6 +85,13 @@ jobs:
           );
           EOF
           git checkout HEAD -- scripts/prepare-release.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/main.ts')
+          text = path.read_text()
+          text = text.replace('Connect Ekatech study account', 'Connect ekatech study account')
+          path.write_text(text)
+          PY
 
       - name: Remove one-time repair files
         run: |
