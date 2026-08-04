@@ -1,0 +1,162 @@
+name: Publish Album Gallery 0.6.9 once
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/publish-album-gallery-0.6.9-once.yml
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: publish-album-gallery-0.6.9
+  cancel-in-progress: false
+
+env:
+  RELEASE_VERSION: 0.6.9
+  RELEASE_TARGET: 7ceea14d7dd667470f921e520eb9612176ca2dee
+
+jobs:
+  publish:
+    name: Build, attest, and publish 0.6.9
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out exact release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TARGET }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Install exact development dependencies
+        run: npm install --package-lock=false
+
+      - name: Run full validation and prepare release assets
+        run: npm run prepare:release
+
+      - name: Verify Community Plugins review fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_dir="release/$RELEASE_VERSION"
+          test "$(node -p "require('./manifest.json').version")" = "$RELEASE_VERSION"
+          test -s "$release_dir/main.js"
+          test -s "$release_dir/manifest.json"
+          test -s "$release_dir/styles.css"
+          test -s "$release_dir/release-manifest.json"
+          ! grep -q 'album-gallery-media-runtime-styles' "$release_dir/main.js"
+          ! grep -q 'document.createElement("style")' "$release_dir/main.js"
+          grep -q 'Album Gallery static media and lightbox styles' "$release_dir/styles.css"
+          grep -q 'album-gallery-lightbox-container' "$release_dir/styles.css"
+          grep -q 'repeat(2, minmax(0, 1fr))' "$release_dir/styles.css"
+          node --check "$release_dir/main.js"
+
+      - name: Attest main.js provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: release/${{ env.RELEASE_VERSION }}/main.js
+
+      - name: Attest styles.css provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: release/${{ env.RELEASE_VERSION }}/styles.css
+
+      - name: Create or repair GitHub release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_dir="release/$RELEASE_VERSION"
+
+          cat > /tmp/release-notes.md <<'NOTES'
+          Album Gallery 0.6.9 resolves the blocking Obsidian Community Plugins automated-review error.
+
+          Changes:
+          - Moved all media and mobile lightbox CSS into the static `styles.css` release asset
+          - Removed runtime `<style>` element creation and the obsolete media-style injector
+          - Preserved the validated two-column mobile grid, toolbar close button, and left/right navigation
+          - Added permanent release checks that reject runtime style injection
+          - Added cryptographic GitHub artifact attestations for `main.js` and `styles.css`
+
+          Obsidian release assets are attached separately as `main.js`, `manifest.json`, and `styles.css`.
+          NOTES
+
+          assets=(
+            "$release_dir/main.js"
+            "$release_dir/manifest.json"
+            "$release_dir/styles.css"
+          )
+
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_VERSION" \
+              --title "Album Gallery $RELEASE_VERSION" \
+              --notes-file /tmp/release-notes.md \
+              --draft=false \
+              --prerelease=false \
+              --latest
+            gh release upload "$RELEASE_VERSION" "${assets[@]}" --clobber
+          else
+            gh release create "$RELEASE_VERSION" "${assets[@]}" \
+              --target "$RELEASE_TARGET" \
+              --title "Album Gallery $RELEASE_VERSION" \
+              --notes-file /tmp/release-notes.md \
+              --latest
+          fi
+
+      - name: Verify release and attestations
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_dir="release/$RELEASE_VERSION"
+
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          version = os.environ['RELEASE_VERSION']
+          data = json.loads(subprocess.check_output([
+              'gh', 'release', 'view', version,
+              '--json', 'tagName,isDraft,isPrerelease,assets,targetCommitish,url'
+          ], text=True))
+          expected = {'main.js', 'manifest.json', 'styles.css'}
+          actual = {asset['name'] for asset in data['assets']}
+          assert data['tagName'] == version, data
+          assert data['isDraft'] is False, data
+          assert data['isPrerelease'] is False, data
+          assert expected.issubset(actual), (expected, actual)
+          print(json.dumps(data, indent=2))
+          PY
+
+          gh attestation verify "$release_dir/main.js" --repo "$GITHUB_REPOSITORY"
+          gh attestation verify "$release_dir/styles.css" --repo "$GITHUB_REPOSITORY"
+
+      - name: Remove one-time publisher
+        if: steps.release.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin master
+          git checkout -B master origin/master
+          rm -f .github/workflows/publish-album-gallery-0.6.9-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u .github/workflows/publish-album-gallery-0.6.9-once.yml
+          git commit -m "Remove one-time Album Gallery 0.6.9 publisher [skip ci]"
+          git push origin HEAD:master
