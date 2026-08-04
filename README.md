@@ -103,10 +103,10 @@ Requirements:
 - Node.js 18 or later
 - npm
 
-Install dependencies and validate the project:
+Install dependencies and validate the project locally:
 
 ```bash
-npm ci
+npm install
 npm run check
 ```
 
@@ -125,10 +125,11 @@ npm run build
 ## Release process
 
 1. Update `manifest.json`, `package.json`, and `versions.json` when required.
-2. Run `npm ci`.
-3. Run `npm run check`.
-4. Create a GitHub release whose tag exactly matches the version in `manifest.json`, without a `v` prefix.
-5. Attach these files separately to the release:
+2. Run `npm install`.
+3. Run `npm run prepare:release`.
+4. Test the generated release files on desktop and mobile.
+5. Create a GitHub release whose tag exactly matches the version in `manifest.json`, without a `v` prefix.
+6. Attach these files separately to the release:
    - `main.js`
    - `manifest.json`
    - `styles.css`
