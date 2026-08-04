@@ -9,6 +9,7 @@ All notable changes to Album Gallery are documented here.
 - Subtle Ekatech ownership branding that does not place watermarks on user media
 - Developer information and repository access in the settings source interface
 - Responsive branding styles for mobile, light mode, and dark mode
+- Local release preparation, privacy, security, and Community Plugins submission documentation
 
 ### Fixed
 
@@ -16,6 +17,9 @@ All notable changes to Album Gallery are documented here.
 - Full-screen mobile lightbox sizing uses the dynamic viewport height
 - MP4, MOV, and WebM cards generate visible preview frames instead of remaining black on iOS
 - Obsidian Mobile startup no longer depends on the removed secondary runtime loader
+- Production bundles are stamped with the exact `manifest.json` version
+- Obsolete runtime shards and stale sample-project package metadata were removed from the public repository
+- Release tooling versions are pinned and the complete release package is validated locally without GitHub Actions
 
 ### Media support
 
