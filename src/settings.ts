@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, setIcon } from 'obsidian';
 import type { EkatechStudyMistakeDefaults, EkatechStudyStatus } from './ekatech-study';
 import type AlbumGalleryPlugin from './main';
 
@@ -34,6 +34,7 @@ export class AlbumGallerySettingTab extends PluginSettingTab {
 
 	display(): void {
 		this.containerEl.empty();
+		this.containerEl.addClass('album-gallery-settings');
 		const status = this.plugin.settings.ekatechStudyStatus;
 		const quota = status?.quota;
 		const accountText = status
@@ -94,5 +95,37 @@ export class AlbumGallerySettingTab extends PluginSettingTab {
 					this.plugin.settings.batchSize = value;
 					await this.plugin.saveSettings();
 				}));
+
+		this.renderBrandFooter();
+	}
+
+	private renderBrandFooter(): void {
+		const footer = this.containerEl.createEl('footer', {
+			cls: 'album-gallery-brand-footer',
+			attr: { 'aria-label': 'Album Gallery geliştirici bilgisi' },
+		});
+		const mark = footer.createSpan({
+			cls: 'album-gallery-brand-mark',
+			attr: { 'aria-hidden': 'true' },
+		});
+		setIcon(mark, 'sparkles');
+
+		const identity = footer.createDiv({ cls: 'album-gallery-brand-identity' });
+		identity.createEl('strong', { text: 'Album Gallery' });
+		identity.createEl('span', {
+			text: `Ekatech tarafından geliştirildi · v${this.plugin.manifest.version}`,
+		});
+
+		const repositoryLink = footer.createEl('a', {
+			cls: 'album-gallery-brand-link',
+			text: 'GitHub',
+			attr: {
+				href: 'https://github.com/Ezakamak/obsidian-album-gallery',
+				target: '_blank',
+				rel: 'noopener noreferrer',
+				'aria-label': 'Album Gallery GitHub deposunu aç',
+			},
+		});
+		repositoryLink.setAttr('title', 'GitHub deposunu aç');
 	}
 }
