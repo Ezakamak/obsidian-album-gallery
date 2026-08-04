@@ -1,7 +1,7 @@
 {
   "id": "album-gallery",
   "name": "Album Gallery",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "minAppVersion": "1.8.0",
   "description": "Create Apple Photos-inspired galleries with managed photos, animated GIFs, and videos.",
   "author": "Emir",
