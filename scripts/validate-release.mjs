@@ -32,6 +32,10 @@ async function readJson(path) {
   }
 }
 
+function stableObject(value) {
+  return JSON.stringify(value ?? {}, Object.keys(value ?? {}).sort());
+}
+
 for (const path of requiredFiles) {
   try {
     const info = await stat(path);
@@ -59,11 +63,9 @@ if (String(manifest.id).endsWith('-plugin')) fail('manifest.id must not end with
 if (!semverPattern.test(manifest.version ?? '')) fail('manifest.version must be x.y.z without a v prefix.');
 if (!semverPattern.test(manifest.minAppVersion ?? '')) fail('manifest.minAppVersion must be x.y.z.');
 if (manifest.version !== packageJson.version) fail('manifest.json and package.json versions do not match.');
-if (packageLock.name !== packageJson.name || packageLock.version !== packageJson.version) {
-  fail('package-lock.json name/version does not match package.json.');
-}
-if (packageLock.packages?.['']?.name !== packageJson.name || packageLock.packages?.['']?.version !== packageJson.version) {
-  fail('package-lock.json root package metadata does not match package.json.');
+if (packageLock.lockfileVersion !== 3) fail('package-lock.json must use lockfileVersion 3.');
+if (stableObject(packageLock.packages?.['']?.devDependencies) !== stableObject(packageJson.devDependencies)) {
+  fail('package-lock.json root development dependencies do not match package.json.');
 }
 if (versions[manifest.version] !== manifest.minAppVersion) {
   fail('versions.json must map the current plugin version to manifest.minAppVersion.');
