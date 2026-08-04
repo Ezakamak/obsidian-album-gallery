@@ -1,6 +1,12 @@
 name: Restore proven Album Gallery mobile grid once
 
 on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - .github/workflows/restore-proven-mobile-grid-once.yml
+      - scripts/apply-proven-mobile-grid.mjs
   push:
     branches:
       - fix/restore-proven-mobile-grid-0.6.5
@@ -59,6 +65,7 @@ jobs:
           git diff --check
 
       - name: Commit the validated restoration to the branch
+        if: github.event_name == 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
