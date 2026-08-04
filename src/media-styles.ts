@@ -97,6 +97,7 @@ export function installGalleryMediaStyles(): void {
 	-webkit-backdrop-filter: blur(16px);
 	touch-action: manipulation;
 }
+.album-gallery-lightbox-container .modal-close-button,
 .album-gallery-lightbox-modal .modal-close-button {
 	display: none !important;
 }

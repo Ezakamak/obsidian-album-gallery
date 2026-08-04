@@ -2,6 +2,14 @@
 
 All notable changes to Album Gallery are documented here.
 
+## 0.6.8
+
+### Fixed
+
+- Removed Obsidian's native modal close element from the Album Gallery lightbox DOM instead of relying on an incorrectly scoped CSS selector
+- Added a container-level fallback rule and a MutationObserver so the native status-bar X cannot return
+- Kept the Album Gallery-owned toolbar close button, corrected two-column grid, and left/right navigation unchanged
+
 ## 0.6.7
 
 ### Fixed
