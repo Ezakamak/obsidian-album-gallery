@@ -2,6 +2,16 @@
 
 All notable changes to Album Gallery are documented here.
 
+## 0.6.9
+
+### Fixed
+
+- Moved all media and mobile lightbox CSS into the static styles.css release asset required by Obsidian
+- Removed runtime style-element creation and the obsolete media-styles module
+- Preserved the proven two-column mobile grid, toolbar close button, and left/right lightbox navigation
+- Switched the lightbox animation-frame call to the active window for popout compatibility
+- Added release validation that rejects future runtime style injection
+
 ## 0.6.8
 
 ### Fixed

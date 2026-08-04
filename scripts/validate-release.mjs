@@ -87,11 +87,20 @@ for (const marker of runtimeMarkers) {
 }
 if (main.includes("require('./media-runtime.js')")) fail('main.js still depends on the removed mobile runtime file.');
 
+if (main.includes('document.createElement("style")') || main.includes("document.createElement('style')")) {
+  fail('main.js must not create runtime style elements; use styles.css instead.');
+}
+if (main.includes('album-gallery-media-runtime-styles')) {
+  fail('main.js still contains the removed runtime media-style injector.');
+}
+
 const styleMarkers = [
   'safe-area-inset-top',
   'safe-area-inset-bottom',
   'album-gallery-lightbox-modal',
   'Album Gallery · Ekatech',
+  'Album Gallery static media and lightbox styles',
+  'album-gallery-lightbox-container',
 ];
 for (const marker of styleMarkers) {
   if (!styles.includes(marker)) fail(`styles.css is missing release marker: ${marker}`);
