@@ -2,6 +2,15 @@
 
 All notable changes to Album Gallery are documented here.
 
+## 0.6.7
+
+### Fixed
+
+- Removed the unreliable native Obsidian lightbox close button from the media viewer
+- Added a toolbar-owned close control that cannot overlap the iPhone battery or status icons
+- Reduced the excessive empty space above the media toolbar while preserving the safe top offset
+- Preserved the corrected two-column media grid and left/right lightbox navigation
+
 ## 0.6.6
 
 ### Fixed

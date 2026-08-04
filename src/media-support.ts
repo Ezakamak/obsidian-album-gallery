@@ -309,7 +309,8 @@ class GalleryMediaLightboxModal extends Modal {
 		const titleGroup = toolbar.createDiv({ cls: 'album-gallery-lightbox-title-group' });
 		this.titleElement = titleGroup.createDiv({ cls: 'album-gallery-lightbox-title' });
 		this.subtitleElement = titleGroup.createDiv({ cls: 'album-gallery-lightbox-subtitle' });
-		const deleteButton = toolbar.createEl('button', {
+		const toolbarActions = toolbar.createDiv({ cls: 'album-gallery-lightbox-actions' });
+		const deleteButton = toolbarActions.createEl('button', {
 			cls: 'clickable-icon album-gallery-lightbox-delete',
 			attr: { type: 'button', 'aria-label': 'Delete media item' },
 		});
@@ -320,6 +321,12 @@ class GalleryMediaLightboxModal extends Modal {
 			this.close();
 			this.onRequestDelete(reference);
 		});
+		const closeButton = toolbarActions.createEl('button', {
+			cls: 'clickable-icon album-gallery-lightbox-close',
+			attr: { type: 'button', 'aria-label': 'Close media viewer' },
+		});
+		setIcon(closeButton, 'x');
+		closeButton.addEventListener('click', () => this.close());
 
 		const stage = shell.createDiv({ cls: 'album-gallery-lightbox-stage album-gallery-media-lightbox-stage' });
 		const previous = stage.createEl('button', {

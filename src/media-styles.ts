@@ -44,7 +44,7 @@ export function installGalleryMediaStyles(): void {
 	justify-content: space-between;
 	gap: 12px;
 	min-width: 0;
-	padding-right: 56px;
+	padding-right: 0;
 }
 .album-gallery-lightbox-title-group {
 	flex: 1 1 auto;
@@ -66,9 +66,39 @@ export function installGalleryMediaStyles(): void {
 .album-gallery-lightbox-title {
 	font-weight: var(--font-semibold);
 }
-.album-gallery-lightbox-delete {
+.album-gallery-lightbox-actions {
+	display: flex;
+	align-items: center;
 	flex: 0 0 auto;
+	gap: 8px;
+}
+.album-gallery-lightbox-delete,
+.album-gallery-lightbox-close {
+	display: grid;
+	place-items: center;
+	flex: 0 0 auto;
+	width: 44px;
+	height: 44px;
+	min-width: 44px;
+	min-height: 44px;
+	margin: 0;
+	padding: 0;
+	border-radius: 999px;
+}
+.album-gallery-lightbox-delete {
 	color: var(--text-error);
+}
+.album-gallery-lightbox-close {
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	background: rgba(38, 38, 38, 0.9);
+	color: #fff;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	touch-action: manipulation;
+}
+.album-gallery-lightbox-modal .modal-close-button {
+	display: none !important;
 }
 .album-gallery-lightbox-stage {
 	min-height: 0;
@@ -128,36 +158,12 @@ export function installGalleryMediaStyles(): void {
 		border-radius: 0 !important;
 		box-sizing: border-box;
 	}
-	.album-gallery-lightbox-modal .modal-close-button {
-		position: fixed !important;
-		top: max(calc(env(safe-area-inset-top, 0px) + 12px), calc(var(--safe-area-inset-top, 0px) + 12px), 64px) !important;
-		right: max(calc(env(safe-area-inset-right, 0px) + 12px), calc(var(--safe-area-inset-right, 0px) + 12px), 12px) !important;
-		left: auto !important;
-		display: grid !important;
-		place-items: center;
-		width: 48px !important;
-		height: 48px !important;
-		min-width: 48px !important;
-		min-height: 48px !important;
-		margin: 0 !important;
-		padding: 0 !important;
-		border: 1px solid rgba(255, 255, 255, 0.14) !important;
-		border-radius: 50% !important;
-		background: rgba(38, 38, 38, 0.9) !important;
-		color: #fff !important;
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
-		backdrop-filter: blur(16px);
-		-webkit-backdrop-filter: blur(16px);
-		transform: none !important;
-		pointer-events: auto !important;
-		touch-action: manipulation;
-		z-index: 1000 !important;
-	}
+
 	.album-gallery-lightbox-modal .modal-content {
 		height: 100% !important;
-		padding-top: max(calc(env(safe-area-inset-top, 0px) + 76px), calc(var(--safe-area-inset-top, 0px) + 76px), 124px) !important;
+		padding-top: 72px !important;
 		padding-right: 0 !important;
-		padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 10px), calc(var(--safe-area-inset-bottom, 0px) + 10px), 10px) !important;
+		padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 10px), 10px) !important;
 		padding-left: 0 !important;
 		box-sizing: border-box;
 	}
@@ -169,10 +175,17 @@ export function installGalleryMediaStyles(): void {
 		min-width: 0;
 	}
 	.album-gallery-lightbox-title {
-		max-width: calc(100vw - 92px);
+		max-width: calc(100vw - 164px);
 	}
 	.album-gallery-lightbox-subtitle {
-		max-width: calc(100vw - 92px);
+		max-width: calc(100vw - 164px);
+	}
+	.album-gallery-lightbox-delete,
+	.album-gallery-lightbox-close {
+		width: 48px;
+		height: 48px;
+		min-width: 48px;
+		min-height: 48px;
 	}
 	.album-gallery-media-lightbox-stage {
 		grid-template-columns: 1fr;
