@@ -3,7 +3,6 @@ import {
 	Menu,
 	Modal,
 	Notice,
-	TFile,
 	TFolder,
 	TextFileView,
 	WorkspaceLeaf,
