@@ -1,9 +1,9 @@
 name: Package merged Album Gallery 0.6.5 files
 
 on:
-  push:
+  pull_request:
     branches:
-      - packaging/export-merged-0.6.5
+      - master
     paths:
       - .github/workflows/export-merged-0.6.5.yml
 
