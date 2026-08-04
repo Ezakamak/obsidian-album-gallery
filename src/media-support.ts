@@ -309,7 +309,7 @@ class GalleryMediaLightboxModal extends Modal {
 		this.removeNativeCloseControl();
 		this.nativeCloseObserver = new MutationObserver(() => this.removeNativeCloseControl());
 		this.nativeCloseObserver.observe(this.containerEl, { childList: true, subtree: true });
-		requestAnimationFrame(() => this.removeNativeCloseControl());
+		window.requestAnimationFrame(() => this.removeNativeCloseControl());
 		const shell = this.contentEl.createDiv({ cls: 'album-gallery-lightbox' });
 		const toolbar = shell.createDiv({ cls: 'album-gallery-lightbox-toolbar' });
 		const titleGroup = toolbar.createDiv({ cls: 'album-gallery-lightbox-title-group' });

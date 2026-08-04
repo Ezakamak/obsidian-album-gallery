@@ -3,7 +3,6 @@ import { GALLERY_VIEW_TYPE } from './constants';
 import { AlbumGalleryView } from './gallery-view';
 import AlbumGalleryPlugin from './main';
 import { installGalleryMediaSupport } from './media-support';
-import { installGalleryMediaStyles } from './media-styles';
 import { installVideoPreviewThumbnails } from './video-preview-thumbnails';
 
 interface RegisterViewHost {
@@ -12,7 +11,6 @@ interface RegisterViewHost {
 
 export default class AlbumGalleryMediaPlugin extends AlbumGalleryPlugin {
 	async onload(): Promise<void> {
-		installGalleryMediaStyles();
 		const host = this as unknown as RegisterViewHost;
 		const originalRegisterView = host.registerView.bind(this);
 		host.registerView = (type, viewCreator) => {

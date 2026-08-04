@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 
-const styles = fs.readFileSync('src/media-styles.ts', 'utf8');
+const styles = fs.readFileSync('styles.css', 'utf8');
 const support = fs.readFileSync('src/media-support.ts', 'utf8');
 
 const requiredStyles = [
