@@ -1,0 +1,74 @@
+name: Fix Album Gallery Obsidian review 0.6.9 once
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - .github/workflows/fix-obsidian-review-0.6.9-once.yml
+      - scripts/apply-obsidian-review-0.6.9.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-album-gallery-obsidian-review-0.6.9
+  cancel-in-progress: true
+
+jobs:
+  repair-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repair branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/obsidian-review-0.6.9
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Apply Obsidian automated-review fixes
+        run: node scripts/apply-obsidian-review-0.6.9.mjs
+
+      - name: Remove one-time repair files
+        run: |
+          rm -f scripts/apply-obsidian-review-0.6.9.mjs
+          rm -f .github/workflows/fix-obsidian-review-0.6.9-once.yml
+
+      - name: Install exact development dependencies
+        run: npm install --package-lock=false
+
+      - name: Run complete repository validation
+        run: npm run check
+
+      - name: Verify static CSS migration and preserved mobile behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./manifest.json').version")" = "0.6.9"
+          test ! -e src/media-styles.ts
+          ! grep -R -q "installGalleryMediaStyles" src
+          ! grep -R -q "createElement('style')" src
+          ! grep -q 'album-gallery-media-runtime-styles' main.js
+          grep -q 'Album Gallery static media and lightbox styles' styles.css
+          grep -q 'album-gallery-lightbox-container' styles.css
+          grep -q 'repeat(2, minmax(0, 1fr))' styles.css
+          grep -q 'window.requestAnimationFrame' src/media-support.ts
+          node --check main.js
+
+      - name: Commit validated 0.6.9 sources and bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Move media styles into the static Obsidian stylesheet"
+          git push origin HEAD:fix/obsidian-review-0.6.9
