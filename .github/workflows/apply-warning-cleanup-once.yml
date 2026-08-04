@@ -24,6 +24,68 @@ jobs:
       - name: Apply source-level warning fixes
         run: python3 scripts/apply-warning-cleanup-once.py
 
+      - name: Correct lint scopes for shipped code and build tooling
+        shell: bash
+        run: |
+          cat > eslint.config.mjs <<'EOF'
+          import obsidianmd from 'eslint-plugin-obsidianmd';
+          import globals from 'globals';
+          import { defineConfig, globalIgnores } from 'eslint/config';
+
+          export default defineConfig(
+            globalIgnores([
+              'node_modules/**',
+              'release/**',
+              'dist/**',
+              'build/**',
+              'coverage/**',
+              'main.js',
+              'package-lock.json',
+            ]),
+            {
+              languageOptions: {
+                globals: {
+                  ...globals.browser,
+                  ...globals.node,
+                },
+                parserOptions: {
+                  projectService: {
+                    allowDefaultProject: [
+                      'eslint.config.mjs',
+                      'eslint.config.mts',
+                      'esbuild.config.mjs',
+                      'version-bump.mjs',
+                      'scripts/*.mjs',
+                      'manifest.json',
+                    ],
+                  },
+                  tsconfigRootDir: import.meta.dirname,
+                  extraFileExtensions: ['.json'],
+                },
+              },
+            },
+            ...obsidianmd.configs.recommended,
+            {
+              files: ['scripts/**/*.mjs', '*.mjs'],
+              rules: {
+                'obsidianmd/no-nodejs-modules': 'off',
+                'obsidianmd/rule-custom-message': 'off',
+                'no-console': 'off',
+              },
+            },
+            {
+              files: ['src/**/*.ts'],
+              rules: {
+                '@typescript-eslint/no-unused-vars': ['error', {
+                  argsIgnorePattern: '^_',
+                  varsIgnorePattern: '^_',
+                }],
+              },
+            },
+          );
+          EOF
+          git checkout HEAD -- scripts/prepare-release.mjs
+
       - name: Remove one-time repair files
         run: |
           rm -f scripts/apply-warning-cleanup-once.py
