@@ -1,13 +1,13 @@
 {
   "name": "obsidian-album-gallery",
-  "version": "0.6.9",
+  "version": "0.6.10",
   "description": "An Apple Photos-inspired managed photo, GIF, and video album gallery plugin for Obsidian.",
   "main": "main.js",
   "type": "module",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "validate:release": "node scripts/validate-release.mjs",
     "check": "npm run lint && npm run build && npm run validate:grid && npm run validate:lightbox && npm run validate:release",
     "prepare:release": "npm run check && node scripts/prepare-release.mjs",
@@ -37,7 +37,7 @@
     "eslint-plugin-obsidianmd": "0.4.0",
     "globals": "17.6.0",
     "jiti": "2.7.0",
-    "obsidian": "1.12.3",
+    "obsidian": "1.13.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.2"
   }

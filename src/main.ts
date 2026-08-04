@@ -53,10 +53,10 @@ class EkatechStudyLinkConfirmModal extends Modal {
 		const icon = shell.createDiv({ cls: 'album-gallery-study-link-confirm-icon' });
 		setIcon(icon, 'graduation-cap');
 
-		shell.createEl('h2', { text: 'Ekatech Study hesabına bağlan' });
+		shell.createEl('h2', { text: 'Ekatech study hesabına bağlan' });
 		shell.createEl('p', {
 			cls: 'album-gallery-study-link-confirm-lead',
-			text: 'Devam ettiğinde güvenli giriş için Ekatech Study web sitesine yönlendirileceksin.',
+			text: 'Devam ettiğinde güvenli giriş için ekatech study web sitesine yönlendirileceksin.',
 		});
 
 		const notice = shell.createDiv({ cls: 'album-gallery-study-link-confirm-notice' });
@@ -64,10 +64,10 @@ class EkatechStudyLinkConfirmModal extends Modal {
 		setIcon(noticeIcon, 'info');
 		const noticeText = notice.createDiv();
 		noticeText.createEl('strong', {
-			text: 'Bu hizmet yalnızca Ekatech Study uygulaması müşterileri içindir.',
+			text: 'Bu hizmet yalnızca ekatech study uygulaması müşterileri içindir.',
 		});
 		noticeText.createEl('p', {
-			text: 'Study hesabınla giriş yaptıktan ve bağlantıyı onayladıktan sonra Obsidian’a geri dönersin. Hata Defteri fotoğrafları bağlı hesabına yüklenir.',
+			text: 'Study hesabınla giriş yaptıktan ve bağlantıyı onayladıktan sonra Obsidian’a geri dönersin. Hata defteri fotoğrafları bağlı hesabına yüklenir.',
 		});
 
 		const actions = shell.createDiv({ cls: 'album-gallery-study-link-confirm-actions' });
@@ -78,7 +78,7 @@ class EkatechStudyLinkConfirmModal extends Modal {
 
 		const continueButton = actions.createEl('button', {
 			cls: 'mod-cta',
-			text: 'Siteye git',
+			text: 'Siteye Git',
 			attr: { type: 'button' },
 		});
 		continueButton.addEventListener('click', () => {
@@ -133,7 +133,7 @@ export default class AlbumGalleryPlugin extends Plugin {
 		});
 		this.addCommand({
 			id: 'connect-ekatech-study',
-			name: 'Connect Ekatech Study account',
+			name: 'Connect ekatech study account',
 			callback: () => this.beginEkatechStudyLink(),
 		});
 
@@ -273,7 +273,7 @@ export default class AlbumGalleryPlugin extends Plugin {
 			} catch (error) {
 				if (error instanceof EkatechStudyApiError && error.status === 401) {
 					await this.clearStudySession();
-					new Notice('Obsidian Study oturumu sona erdi. Yeniden giriş yap.');
+					new Notice('Obsidian study oturumu sona erdi. Yeniden giriş yap.');
 				} else if (showNotice) {
 					new Notice(error instanceof Error ? error.message : 'Study bilgileri yenilenemedi.');
 				}

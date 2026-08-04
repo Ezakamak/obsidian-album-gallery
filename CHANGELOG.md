@@ -2,6 +2,17 @@
 
 All notable changes to Album Gallery are documented here.
 
+## 0.6.10
+
+### Changed
+
+- Added a reproducible npm lockfile and current Obsidian API types so automated source analysis resolves types correctly
+- Migrated settings to the declarative Obsidian 1.13 API and removed deprecated imperative controls
+- Replaced raw DOM creation and cross-window `instanceof` checks with Obsidian-safe helpers
+- Removed every `!important` declaration while preserving the proven mobile grid and lightbox layout through scoped selectors
+- Converted asynchronous UI listeners to synchronous callbacks with explicitly managed promises
+- Added strict zero-warning lint and release gates to prevent these review warnings from returning
+
 ## 0.6.9
 
 ### Fixed

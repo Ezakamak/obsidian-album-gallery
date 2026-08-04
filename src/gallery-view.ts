@@ -320,7 +320,7 @@ export class AlbumGalleryView extends TextFileView {
 			menu.addItem((item) => item.setTitle('Rename album').setIcon('pencil').onClick(() => new AlbumNameModal(this.app, { title: 'Rename album', initialValue: album.name, submitText: 'Save', onSubmit: (name) => { album.name = name; album.updatedAt = Date.now(); this.requestSave(); this.render(); } }).open()));
 			menu.addItem((item) => item.setTitle('Delete album').setIcon('trash-2').onClick(() => new ConfirmActionModal(this.app, { title: 'Delete album?', description: 'The album and its managed photos will be deleted from the vault.', confirmText: 'Delete', onConfirm: async () => this.deleteAlbum(album) }).open()));
 		} else {
-			menu.addItem((item) => item.setTitle('Refresh Study account').setIcon('refresh-cw').onClick(() => { void this.plugin.refreshEkatechStudyStatus(true); }));
+			menu.addItem((item) => item.setTitle('Refresh study account').setIcon('refresh-cw').onClick(() => { void this.plugin.refreshEkatechStudyStatus(true); }));
 		}
 		menu.showAtMouseEvent(event);
 	}
@@ -454,13 +454,13 @@ export class AlbumGalleryView extends TextFileView {
 		subject.addEventListener('change', rebuildTopics);
 		rebuildSubjects();
 		const save = panel.createEl('button', { cls: 'mod-cta', text: 'Ayarları kaydet', attr: { type: 'button' } });
-		save.addEventListener('click', async () => {
+		save.addEventListener('click', () => { void (async () => {
 			const next: EkatechStudyMistakeDefaults = { examType: exam.value, subjectCode: subject.value, topicCode: topic.value, mistakeType: mistake.value, reviewIntervalDays: Number(interval.value), sourceName: source.value.trim(), questionNote: question.value.trim(), solutionNote: solution.value.trim() };
 			await this.plugin.updateEkatechStudyDefaults(next);
 			for (const image of album.images) if (image.study && image.study.syncState !== 'synced') Object.assign(image.study, next);
 			this.requestSave();
-			new Notice('Hata Defteri varsayılanları kaydedildi.');
-		});
+			new Notice('Hata defteri varsayılanları kaydedildi.');
+		})(); });
 	}
 
 	private ensureEkatechStudyAlbum(): GalleryAlbum {
@@ -528,7 +528,7 @@ export class AlbumGalleryView extends TextFileView {
 			this.syncingStudyAlbum = false; album.updatedAt = Date.now(); this.requestSave(); this.render();
 		}
 		if (synced > 0) new Notice(`${synced} fotoğraf Study Hata Defteri’ne otomatik yüklendi.`);
-		if (failed > 0 && synced === 0) new Notice('Bazı Hata Defteri fotoğrafları kuyrukta kaldı; otomatik yeniden denenecek.');
+		if (failed > 0 && synced === 0) new Notice('Bazı hata defteri fotoğrafları kuyrukta kaldı; otomatik yeniden denenecek.');
 	}
 
 	private getVisibleAlbums(): GalleryAlbum[] {
@@ -594,7 +594,7 @@ class ConfirmActionModal extends Modal {
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
 		actions.createEl('button', { text: 'Cancel', attr: { type: 'button' } }).addEventListener('click', () => this.close());
 		const confirm = actions.createEl('button', { cls: 'mod-warning', text: this.options.confirmText, attr: { type: 'button' } });
-		confirm.addEventListener('click', async () => { confirm.disabled = true; await this.options.onConfirm(); this.close(); });
+		confirm.addEventListener('click', () => { void (async () => { confirm.disabled = true; await this.options.onConfirm(); this.close(); })(); });
 	}
 	onClose(): void { this.contentEl.empty(); }
 }
