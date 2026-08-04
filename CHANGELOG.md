@@ -2,6 +2,16 @@
 
 All notable changes to Album Gallery are documented here.
 
+## 0.6.6
+
+### Fixed
+
+- Restored the proven mobile lightbox layout from the correctly working early releases
+- Kept long filenames on one ellipsized line and moved album/count metadata beneath them
+- Returned previous and next controls to the left and right center of the media stage
+- Moved the close control below the iPhone status area with a fixed 48-point touch target
+- Added permanent lightbox regression validation while preserving the corrected two-column media grid
+
 ## 0.6.5
 
 ### Fixed
