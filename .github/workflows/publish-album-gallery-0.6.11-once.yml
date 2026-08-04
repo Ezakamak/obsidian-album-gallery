@@ -1,0 +1,164 @@
+name: Publish Album Gallery 0.6.11 once
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/publish-album-gallery-0.6.11-once.yml
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: publish-album-gallery-0.6.11
+  cancel-in-progress: false
+
+env:
+  RELEASE_VERSION: 0.6.11
+  RELEASE_TARGET: b833f83033c215de38563a311c4a0e0ca6633501
+
+jobs:
+  publish:
+    name: Validate, attest, and publish 0.6.11
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out exact release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TARGET }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run zero-warning validation and prepare assets
+        run: npm run prepare:release
+
+      - name: Verify instant-title release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_dir="release/$RELEASE_VERSION"
+          test "$(node -p "require('./manifest.json').version")" = "$RELEASE_VERSION"
+          test "$(node -p "require('./manifest.json').minAppVersion")" = "1.13.0"
+          test "$(node -p "require('./package-lock.json').version")" = "$RELEASE_VERSION"
+          test -s "$release_dir/main.js"
+          test -s "$release_dir/manifest.json"
+          test -s "$release_dir/styles.css"
+          test -s "$release_dir/release-manifest.json"
+          grep -q "private syncTitleWithFileName(): boolean" src/gallery-view.ts
+          grep -q "const titleChanged = this.syncTitleWithFileName();" src/gallery-view.ts
+          grep -q "if (titleChanged) this.requestSave();" src/gallery-view.ts
+          ! grep -R -n --include='*.ts' --include='*.js' 'document.createElement' src "$release_dir/main.js"
+          ! grep -R -n --include='*.ts' 'instanceof HTMLVideoElement' src
+          ! grep -n '!important' "$release_dir/styles.css"
+          ! grep -R -n 'eslint-disable\|ts-ignore\|ts-nocheck' src
+          node --check "$release_dir/main.js"
+
+      - name: Attest main.js provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: release/${{ env.RELEASE_VERSION }}/main.js
+
+      - name: Attest styles.css provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: release/${{ env.RELEASE_VERSION }}/styles.css
+
+      - name: Create or repair GitHub release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_dir="release/$RELEASE_VERSION"
+
+          cat > /tmp/release-notes.md <<'NOTES'
+          Album Gallery 0.6.11 fixes gallery-title synchronization after file renames.
+
+          Changes:
+          - Gallery titles update immediately when their backing gallery file is renamed
+          - The synchronized title is persisted only when it actually changes, preventing save loops
+          - Added a permanent release regression check for filename-to-title synchronization
+          - Preserved the zero-warning Obsidian review contract, mobile grid, and lightbox behavior
+
+          Obsidian release assets are attached separately as `main.js`, `manifest.json`, and `styles.css`.
+          NOTES
+
+          assets=(
+            "$release_dir/main.js"
+            "$release_dir/manifest.json"
+            "$release_dir/styles.css"
+          )
+
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_VERSION" \
+              --title "Album Gallery $RELEASE_VERSION" \
+              --notes-file /tmp/release-notes.md \
+              --draft=false \
+              --prerelease=false \
+              --latest
+            gh release upload "$RELEASE_VERSION" "${assets[@]}" --clobber
+          else
+            gh release create "$RELEASE_VERSION" "${assets[@]}" \
+              --target "$RELEASE_TARGET" \
+              --title "Album Gallery $RELEASE_VERSION" \
+              --notes-file /tmp/release-notes.md \
+              --latest
+          fi
+
+      - name: Verify release and attestations
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_dir="release/$RELEASE_VERSION"
+
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          version = os.environ['RELEASE_VERSION']
+          data = json.loads(subprocess.check_output([
+              'gh', 'release', 'view', version,
+              '--json', 'tagName,isDraft,isPrerelease,assets,targetCommitish,url'
+          ], text=True))
+          expected = {'main.js', 'manifest.json', 'styles.css'}
+          actual = {asset['name'] for asset in data['assets']}
+          assert data['tagName'] == version, data
+          assert data['isDraft'] is False, data
+          assert data['isPrerelease'] is False, data
+          assert expected.issubset(actual), (expected, actual)
+          print(json.dumps(data, indent=2))
+          PY
+
+          gh attestation verify "$release_dir/main.js" --repo "$GITHUB_REPOSITORY"
+          gh attestation verify "$release_dir/styles.css" --repo "$GITHUB_REPOSITORY"
+
+      - name: Remove one-time publisher
+        if: steps.release.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin master
+          git checkout -B master origin/master
+          rm -f .github/workflows/publish-album-gallery-0.6.11-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u .github/workflows/publish-album-gallery-0.6.11-once.yml
+          git commit -m "Remove one-time Album Gallery 0.6.11 publisher [skip ci]"
+          git push origin HEAD:master
