@@ -38,11 +38,6 @@ write('manifest.json', json.dumps(manifest, indent=2, ensure_ascii=False) + '\n'
 
 package = json.loads(read('package.json'))
 package['version'] = '0.6.11'
-package['scripts']['validate:title-sync'] = 'node scripts/validate-title-sync.mjs'
-package['scripts']['check'] = (
-    'npm run lint && npm run build && npm run validate:grid && '
-    'npm run validate:lightbox && npm run validate:title-sync && npm run validate:release'
-)
 write('package.json', json.dumps(package, indent=2, ensure_ascii=False) + '\n')
 
 lock = json.loads(read('package-lock.json'))
@@ -55,40 +50,17 @@ versions = json.loads(read('versions.json'))
 versions['0.6.11'] = '1.13.0'
 write('versions.json', json.dumps(versions, indent=2, ensure_ascii=False) + '\n')
 
-validation = """import fs from 'node:fs';
+replace_once(
+    'scripts/validate-release.mjs',
+    "const releasing = await readText('RELEASING.md');\n",
+    "const releasing = await readText('RELEASING.md');\nconst galleryViewSource = await readText('src/gallery-view.ts');\n",
+)
 
-const source = fs.readFileSync('src/gallery-view.ts', 'utf8');
-
-const required = [
-  'private syncTitleWithFileName(): boolean',
-  'const fileTitle = this.file?.basename;',
-  'if (!fileTitle || this.document.title === fileTitle) return false;',
-  'this.document.title = fileTitle;',
-  'if (this.syncTitleWithFileName()) shouldSave = true;',
-  'const titleChanged = this.syncTitleWithFileName();',
-  'if (titleChanged) this.requestSave();',
-];
-
-for (const token of required) {
-  if (!source.includes(token)) {
-    throw new Error(`Instant gallery-title synchronization contract is missing: ${token}`);
-  }
-}
-
-const refreshStart = source.indexOf('requestVaultRefresh(): void');
-const refreshEnd = source.indexOf('public activateEkatechStudyAlbum', refreshStart);
-if (refreshStart < 0 || refreshEnd < 0) {
-  throw new Error('Could not locate requestVaultRefresh() for title-sync validation.');
-}
-const refreshBlock = source.slice(refreshStart, refreshEnd);
-const syncIndex = refreshBlock.indexOf('const titleChanged = this.syncTitleWithFileName();');
-const renderIndex = refreshBlock.indexOf('this.render();');
-const saveIndex = refreshBlock.indexOf('if (titleChanged) this.requestSave();');
-if (!(syncIndex >= 0 && renderIndex > syncIndex && saveIndex > renderIndex)) {
-  throw new Error('Rename refresh must synchronize the title, render immediately, then persist only when changed.');
-}
-"""
-write('scripts/validate-title-sync.mjs', validation)
+replace_once(
+    'scripts/validate-release.mjs',
+    "if (!releasing.includes('main.js') || !releasing.includes('manifest.json') || !releasing.includes('styles.css')) fail('RELEASING.md must list all required release assets.');\n\n\n",
+    "if (!releasing.includes('main.js') || !releasing.includes('manifest.json') || !releasing.includes('styles.css')) fail('RELEASING.md must list all required release assets.');\n\nconst titleSyncMarkers = [\n  'private syncTitleWithFileName(): boolean',\n  'const fileTitle = this.file?.basename;',\n  'if (!fileTitle || this.document.title === fileTitle) return false;',\n  'this.document.title = fileTitle;',\n  'if (this.syncTitleWithFileName()) shouldSave = true;',\n  'const titleChanged = this.syncTitleWithFileName();',\n  'if (titleChanged) this.requestSave();',\n];\nfor (const marker of titleSyncMarkers) {\n  if (!galleryViewSource.includes(marker)) fail(`Instant gallery-title synchronization marker is missing: ${marker}`);\n}\nconst titleRefreshStart = galleryViewSource.indexOf('requestVaultRefresh(): void');\nconst titleRefreshEnd = galleryViewSource.indexOf('public activateEkatechStudyAlbum', titleRefreshStart);\nif (titleRefreshStart < 0 || titleRefreshEnd < 0) fail('Could not locate requestVaultRefresh() for title synchronization validation.');\nconst titleRefreshBlock = galleryViewSource.slice(titleRefreshStart, titleRefreshEnd);\nconst titleSyncIndex = titleRefreshBlock.indexOf('const titleChanged = this.syncTitleWithFileName();');\nconst titleRenderIndex = titleRefreshBlock.indexOf('this.render();');\nconst titleSaveIndex = titleRefreshBlock.indexOf('if (titleChanged) this.requestSave();');\nif (!(titleSyncIndex >= 0 && titleRenderIndex > titleSyncIndex && titleSaveIndex > titleRenderIndex)) {\n  fail('Rename refresh must synchronize the title, render immediately, then persist only when changed.');\n}\n\n\n",
+)
 
 changelog = read('CHANGELOG.md')
 marker = 'All notable changes to Album Gallery are documented here.\n\n'
