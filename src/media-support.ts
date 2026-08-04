@@ -292,6 +292,7 @@ class GalleryMediaLightboxModal extends Modal {
 	private titleElement: HTMLElement | null = null;
 	private subtitleElement: HTMLElement | null = null;
 	private touchStartX: number | null = null;
+	private nativeCloseObserver: MutationObserver | null = null;
 
 	constructor(
 		app: App,
@@ -304,6 +305,11 @@ class GalleryMediaLightboxModal extends Modal {
 
 	onOpen(): void {
 		this.modalEl.addClass('album-gallery-lightbox-modal');
+		this.containerEl.addClass('album-gallery-lightbox-container');
+		this.removeNativeCloseControl();
+		this.nativeCloseObserver = new MutationObserver(() => this.removeNativeCloseControl());
+		this.nativeCloseObserver.observe(this.containerEl, { childList: true, subtree: true });
+		requestAnimationFrame(() => this.removeNativeCloseControl());
 		const shell = this.contentEl.createDiv({ cls: 'album-gallery-lightbox' });
 		const toolbar = shell.createDiv({ cls: 'album-gallery-lightbox-toolbar' });
 		const titleGroup = toolbar.createDiv({ cls: 'album-gallery-lightbox-title-group' });
@@ -358,6 +364,8 @@ class GalleryMediaLightboxModal extends Modal {
 	}
 
 	onClose(): void {
+		this.nativeCloseObserver?.disconnect();
+		this.nativeCloseObserver = null;
 		this.releaseVideo();
 		this.mediaHost = null;
 		this.titleElement = null;
@@ -396,6 +404,11 @@ class GalleryMediaLightboxModal extends Modal {
 		}
 		this.titleElement.setText(reference.image.name);
 		this.subtitleElement.setText(`${reference.albumName} · ${this.index + 1} of ${this.references.length}`);
+	}
+
+	private removeNativeCloseControl(): void {
+		this.containerEl.querySelectorAll<HTMLElement>('.modal-close-button')
+			.forEach((closeButton) => closeButton.remove());
 	}
 
 	private releaseVideo(): void {

@@ -4,6 +4,7 @@ const styles = fs.readFileSync('src/media-styles.ts', 'utf8');
 const support = fs.readFileSync('src/media-support.ts', 'utf8');
 
 const requiredStyles = [
+	'.album-gallery-lightbox-container .modal-close-button',
 	'.album-gallery-lightbox-modal .modal-close-button',
 	'display: none !important',
 	'.album-gallery-lightbox-actions',
@@ -26,27 +27,22 @@ for (const token of requiredStyles) {
 }
 
 const requiredSource = [
+	"this.containerEl.addClass('album-gallery-lightbox-container')",
+	"new MutationObserver(() => this.removeNativeCloseControl())",
+	"this.nativeCloseObserver.observe(this.containerEl, { childList: true, subtree: true })",
+	"querySelectorAll<HTMLElement>('.modal-close-button')",
+	'closeButton.remove()',
 	"cls: 'album-gallery-lightbox-actions'",
 	"cls: 'clickable-icon album-gallery-lightbox-close'",
 	"setIcon(closeButton, 'x')",
 	"closeButton.addEventListener('click', () => this.close())",
 ];
 for (const token of requiredSource) {
-	if (!support.includes(token)) throw new Error(`Custom lightbox close control is missing: ${token}`);
+	if (!support.includes(token)) throw new Error(`Native/custom close-control contract is missing: ${token}`);
 }
 
-const nativeCloseSelector = '.album-gallery-lightbox-modal .modal-close-button {';
-const nativeCloseStart = styles.indexOf(nativeCloseSelector);
-const nativeCloseEnd = styles.indexOf('}', nativeCloseStart);
-if (nativeCloseStart < 0 || nativeCloseEnd < 0) {
-	throw new Error('The native Obsidian close-button suppression rule is missing.');
-}
-const nativeCloseBlock = styles.slice(nativeCloseStart, nativeCloseEnd + 1);
-if (nativeCloseBlock.includes('position: fixed')) {
-	throw new Error('The unreliable fixed native Obsidian close-button override returned.');
-}
 if (styles.includes('124px) !important')) {
 	throw new Error('The excessive mobile lightbox top padding returned.');
 }
 
-console.log('Album Gallery toolbar-owned mobile close-button validation passed.');
+console.log('Album Gallery native modal X removal validation passed.');
