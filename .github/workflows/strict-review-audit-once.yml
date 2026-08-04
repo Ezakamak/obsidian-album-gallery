@@ -1,0 +1,78 @@
+name: Strict Obsidian review audit once
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - .github/workflows/strict-review-audit-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out warning cleanup branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/clean-all-review-warnings-0.6.10
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Install and lock exact dependencies
+        run: npm install --package-lock=true
+
+      - name: Apply only ESLint safe auto-fixes
+        shell: bash
+        run: |
+          set +e
+          npx eslint . --fix > eslint-fix.log 2>&1
+          echo $? > eslint-fix-exit.txt
+          set -e
+
+      - name: Capture strict remaining findings
+        shell: bash
+        run: |
+          set +e
+          npm run lint > strict-review-lint.txt 2>&1
+          echo $? > strict-review-lint-exit.txt
+          set -e
+          cat strict-review-lint.txt
+
+      - name: Remove one-time audit workflows
+        run: |
+          rm -f .github/workflows/export-warning-audit-source-once.yml
+          rm -f .github/workflows/strict-review-audit-once.yml
+
+      - name: Commit lockfile and safe auto-fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Add reproducible dependencies and apply safe lint fixes"
+            git push origin HEAD:fix/clean-all-review-warnings-0.6.10
+          fi
+
+      - name: Upload strict lint report
+        uses: actions/upload-artifact@v4
+        with:
+          name: strict-obsidian-review-lint
+          path: |
+            strict-review-lint.txt
+            strict-review-lint-exit.txt
+            eslint-fix.log
+            eslint-fix-exit.txt
+          if-no-files-found: error
+          retention-days: 1
