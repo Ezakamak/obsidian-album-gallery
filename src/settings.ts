@@ -1,4 +1,9 @@
-import { App, PluginSettingTab, Setting, setIcon } from 'obsidian';
+import {
+	App,
+	PluginSettingTab,
+	setIcon,
+	type SettingDefinitionItem,
+} from 'obsidian';
 import type { EkatechStudyMistakeDefaults, EkatechStudyStatus } from './ekatech-study';
 import type AlbumGalleryPlugin from './main';
 
@@ -32,100 +37,110 @@ export class AlbumGallerySettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	display(): void {
-		this.containerEl.empty();
-		this.containerEl.addClass('album-gallery-settings');
+	getSettingDefinitions(): SettingDefinitionItem[] {
 		const status = this.plugin.settings.ekatechStudyStatus;
 		const quota = status?.quota;
 		const accountText = status
 			? `${status.account.displayName} · ${status.account.plan}`
-			: 'Obsidian içinde Study hesabına giriş yap. Hata Defteri albümü otomatik oluşturulur ve eklediğin fotoğraflar aynı hesaba yüklenir.';
+			: 'Obsidian içinde Study hesabına giriş yap. Hata defteri albümü otomatik oluşturulur ve eklediğin fotoğraflar aynı hesaba yüklenir.';
 		const quotaText = quota
 			? quota.unlimited
 				? 'Obsidian cloud yüklemeleri sınırsız.'
 				: `Bu ay ${quota.used} / ${quota.limit ?? 12} yükleme kullanıldı. ${quota.remaining ?? 0} kaldı.`
 			: '';
 
-		new Setting(this.containerEl)
-			.setName('Ekatech Study')
-			.setDesc([accountText, quotaText].filter(Boolean).join(' '))
-			.addButton((button) => {
-				if (status) {
-					button.setButtonText('Çıkış yap').setWarning().onClick(async () => {
-						await this.plugin.disconnectEkatechStudy();
-						this.display();
+		return [
+			{
+				name: 'Ekatech study',
+				desc: [accountText, quotaText].filter(Boolean).join(' '),
+				render: (setting) => {
+					setting.addButton((button) => {
+						if (status) {
+							button
+								.setButtonText('Çıkış yap')
+								.setDestructive()
+								.onClick(() => { void this.disconnectStudyAccount(); });
+						} else {
+							button
+								.setButtonText('Study hesabına giriş')
+								.setCta()
+								.onClick(() => this.plugin.beginEkatechStudyLink());
+						}
 					});
-				} else {
-					button.setButtonText('Study hesabına giriş').setCta().onClick(() => {
-						this.plugin.beginEkatechStudyLink();
+				},
+			},
+			{
+				name: 'Hesabı ve kotayı yenile',
+				desc: 'Study paketini, aylık kotayı ve ders-konu listesini yeniden kontrol eder.',
+				visible: Boolean(status),
+				render: (setting) => {
+					setting.addButton((button) => button
+						.setButtonText('Yenile')
+						.onClick(() => { void this.refreshStudyAccount(); }));
+				},
+			},
+			{
+				name: 'Default tab',
+				desc: 'Choose which section opens first in a gallery.',
+				render: (setting) => {
+					setting.addDropdown((dropdown) => dropdown
+						.addOption('photos', 'Photos')
+						.addOption('albums', 'Albums')
+						.setValue(this.plugin.settings.defaultTab)
+						.onChange((value) => {
+							this.plugin.settings.defaultTab = value === 'albums' ? 'albums' : 'photos';
+							void this.plugin.saveSettings();
+						}));
+				},
+			},
+			{
+				name: 'Photos loaded per batch',
+				desc: 'Lower values reduce memory use on mobile. Higher values reveal large galleries faster.',
+				render: (setting) => {
+					setting.addSlider((slider) => slider
+						.setLimits(20, 300, 20)
+						.setValue(this.plugin.settings.batchSize)
+						.onChange((value) => {
+							this.plugin.settings.batchSize = value;
+							void this.plugin.saveSettings();
+						}));
+				},
+			},
+			{
+				name: 'Album gallery',
+				desc: `Ekatech tarafından geliştirildi · v${this.plugin.manifest.version}`,
+				searchable: false,
+				render: (setting) => {
+					setting.settingEl.addClass('album-gallery-brand-footer');
+					setting.settingEl.setAttr('aria-label', 'Album gallery geliştirici bilgisi');
+					const mark = setting.nameEl.createSpan({
+						cls: 'album-gallery-brand-mark',
+						attr: { 'aria-hidden': 'true' },
+						prepend: true,
 					});
-				}
-			});
-
-		if (status) {
-			new Setting(this.containerEl)
-				.setName('Hesabı ve kotayı yenile')
-				.setDesc('Study paketini, aylık kotayı ve ders-konu listesini yeniden kontrol eder.')
-				.addButton((button) => button.setButtonText('Yenile').onClick(async () => {
-					await this.plugin.refreshEkatechStudyStatus(true);
-					this.display();
-				}));
-		}
-
-		new Setting(this.containerEl)
-			.setName('Default tab')
-			.setDesc('Choose which section opens first in a gallery.')
-			.addDropdown((dropdown) => dropdown
-				.addOption('photos', 'Photos')
-				.addOption('albums', 'Albums')
-				.setValue(this.plugin.settings.defaultTab)
-				.onChange(async (value: string) => {
-					this.plugin.settings.defaultTab = value === 'albums' ? 'albums' : 'photos';
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(this.containerEl)
-			.setName('Photos loaded per batch')
-			.setDesc('Lower values reduce memory use on mobile. Higher values reveal large galleries faster.')
-			.addSlider((slider) => slider
-				.setLimits(20, 300, 20)
-				.setDynamicTooltip()
-				.setValue(this.plugin.settings.batchSize)
-				.onChange(async (value: number) => {
-					this.plugin.settings.batchSize = value;
-					await this.plugin.saveSettings();
-				}));
-
-		this.renderBrandFooter();
+					setIcon(mark, 'sparkles');
+					setting.controlEl.createEl('a', {
+						cls: 'album-gallery-brand-link',
+						text: 'GitHub',
+						attr: {
+							href: 'https://github.com/Ezakamak/obsidian-album-gallery',
+							target: '_blank',
+							rel: 'noopener noreferrer',
+							'aria-label': 'Album gallery GitHub deposunu aç',
+						},
+					});
+				},
+			},
+		];
 	}
 
-	private renderBrandFooter(): void {
-		const footer = this.containerEl.createEl('footer', {
-			cls: 'album-gallery-brand-footer',
-			attr: { 'aria-label': 'Album Gallery geliştirici bilgisi' },
-		});
-		const mark = footer.createSpan({
-			cls: 'album-gallery-brand-mark',
-			attr: { 'aria-hidden': 'true' },
-		});
-		setIcon(mark, 'sparkles');
+	private async disconnectStudyAccount(): Promise<void> {
+		await this.plugin.disconnectEkatechStudy();
+		this.update();
+	}
 
-		const identity = footer.createDiv({ cls: 'album-gallery-brand-identity' });
-		identity.createEl('strong', { text: 'Album Gallery' });
-		identity.createSpan({
-			text: `Ekatech tarafından geliştirildi · v${this.plugin.manifest.version}`,
-		});
-
-		const repositoryLink = footer.createEl('a', {
-			cls: 'album-gallery-brand-link',
-			text: 'GitHub',
-			attr: {
-				href: 'https://github.com/Ezakamak/obsidian-album-gallery',
-				target: '_blank',
-				rel: 'noopener noreferrer',
-				'aria-label': 'Album Gallery GitHub deposunu aç',
-			},
-		});
-		repositoryLink.setAttr('title', 'GitHub deposunu aç');
+	private async refreshStudyAccount(): Promise<void> {
+		await this.plugin.refreshEkatechStudyStatus(true);
+		this.update();
 	}
 }

@@ -33,8 +33,8 @@ export class StudyAccountManagerModal extends Modal {
 		const icon = heading.createDiv({ cls: 'album-gallery-account-manager-icon' });
 		setIcon(icon, 'badge-check');
 		const headingText = heading.createDiv();
-		headingText.createEl('h2', { text: 'Study Hesap Yöneticisi' });
-		headingText.createEl('p', { text: 'Obsidian Hata Defteri bağlantını ve aylık yükleme hakkını yönet.' });
+		headingText.createEl('h2', { text: 'Study hesap yöneticisi' });
+		headingText.createEl('p', { text: 'Obsidian hata defteri bağlantını ve aylık yükleme hakkını yönet.' });
 
 		const account = shell.createDiv({ cls: 'album-gallery-account-card' });
 		const identity = account.createDiv({ cls: 'album-gallery-account-identity' });
@@ -88,7 +88,7 @@ export class StudyAccountManagerModal extends Modal {
 		const icon = button.createSpan({ cls: 'album-gallery-account-action-icon' });
 		setIcon(icon, iconName);
 		button.createSpan({ text: label });
-		button.addEventListener('click', async () => {
+		button.addEventListener('click', () => { void (async () => {
 			if (this.busy) return;
 			this.busy = true;
 			button.disabled = true;
@@ -100,7 +100,7 @@ export class StudyAccountManagerModal extends Modal {
 				this.busy = false;
 				button.disabled = false;
 			}
-		});
+		})(); });
 	}
 }
 
@@ -118,19 +118,19 @@ class StudyAccountLogoutConfirmModal extends Modal {
 	onOpen(): void {
 		this.contentEl.createEl('h2', { text: 'Study hesabından çıkış yapılsın mı?' });
 		this.contentEl.createEl('p', {
-			text: 'Bu cihazdaki Study oturumu kapatılacak. Normal albümlerin ve yerel fotoğrafların silinmeyecek.',
+			text: 'Bu cihazdaki study oturumu kapatılacak. Normal albümlerin ve yerel fotoğrafların silinmeyecek.',
 		});
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
 		actions.createEl('button', { text: 'Vazgeç', attr: { type: 'button' } }).addEventListener('click', () => this.close());
 		const confirm = actions.createEl('button', { cls: 'mod-warning', text: 'Çıkış yap', attr: { type: 'button' } });
-		confirm.addEventListener('click', async () => {
+		confirm.addEventListener('click', () => { void (async () => {
 			if (this.busy) return;
 			this.busy = true;
 			confirm.disabled = true;
 			await this.plugin.disconnectEkatechStudy();
 			this.close();
 			this.onLoggedOut();
-		});
+		})(); });
 	}
 
 	onClose(): void {

@@ -498,13 +498,13 @@
 	align-items: stretch;
 }
 
-.album-gallery-photo-card {
-	display: block !important;
-	width: 100% !important;
-	height: auto !important;
-	min-width: 0 !important;
-	min-height: 0 !important;
-	padding: 0 !important;
+.album-gallery-view button.album-gallery-photo-card {
+	display: block;
+	width: 100%;
+	height: auto;
+	min-width: 0;
+	min-height: 0;
+	padding: 0;
 	aspect-ratio: 1;
 	appearance: none;
 	-webkit-appearance: none;
@@ -512,16 +512,16 @@
 	box-sizing: border-box;
 }
 
-.album-gallery-photo-card > img,
-.album-gallery-photo-card > video {
-	display: block !important;
-	width: 100% !important;
-	height: 100% !important;
-	min-width: 0 !important;
-	min-height: 0 !important;
-	max-width: none !important;
-	max-height: none !important;
-	object-fit: cover !important;
+.album-gallery-view button.album-gallery-photo-card > img,
+.album-gallery-view button.album-gallery-photo-card > video {
+	display: block;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	max-width: none;
+	max-height: none;
+	object-fit: cover;
 }
 
 @media (max-width: 700px) {
@@ -635,9 +635,9 @@
 	-webkit-backdrop-filter: blur(16px);
 	touch-action: manipulation;
 }
-.album-gallery-lightbox-container .modal-close-button,
-.album-gallery-lightbox-modal .modal-close-button {
-	display: none !important;
+.modal-container.album-gallery-lightbox-container .modal-close-button,
+.album-gallery-lightbox-container .modal.album-gallery-lightbox-modal .modal-close-button {
+	display: none;
 }
 .album-gallery-lightbox-stage {
 	min-height: 0;
@@ -684,26 +684,26 @@
 .album-gallery-lightbox-video { outline: none; }
 
 @media (max-width: 700px) {
-	.album-gallery-lightbox-modal {
-		position: fixed !important;
-		inset: 0 !important;
-		width: 100vw !important;
-		min-height: 100vh !important;
-		height: 100dvh !important;
-		max-width: none !important;
-		max-height: none !important;
-		margin: 0 !important;
-		padding: 0 !important;
-		border-radius: 0 !important;
+	.album-gallery-lightbox-container .modal.album-gallery-lightbox-modal {
+		position: fixed;
+		inset: 0;
+		width: 100vw;
+		min-height: 100vh;
+		height: 100dvh;
+		max-width: none;
+		max-height: none;
+		margin: 0;
+		padding: 0;
+		border-radius: 0;
 		box-sizing: border-box;
 	}
 
-	.album-gallery-lightbox-modal .modal-content {
-		height: 100% !important;
-		padding-top: 72px !important;
-		padding-right: 0 !important;
-		padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 10px), 10px) !important;
-		padding-left: 0 !important;
+	.album-gallery-lightbox-container .modal.album-gallery-lightbox-modal .modal-content {
+		height: 100%;
+		padding-top: 72px;
+		padding-right: 0;
+		padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 10px), 10px);
+		padding-left: 0;
 		box-sizing: border-box;
 	}
 	.album-gallery-lightbox-toolbar {

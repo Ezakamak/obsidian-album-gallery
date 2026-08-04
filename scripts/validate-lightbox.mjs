@@ -4,12 +4,11 @@ const styles = fs.readFileSync('styles.css', 'utf8');
 const support = fs.readFileSync('src/media-support.ts', 'utf8');
 
 const requiredStyles = [
-	'.album-gallery-lightbox-container .modal-close-button',
-	'.album-gallery-lightbox-modal .modal-close-button',
-	'display: none !important',
+	'.modal-container.album-gallery-lightbox-container .modal-close-button',
+	'display: none',
 	'.album-gallery-lightbox-actions',
 	'.album-gallery-lightbox-close',
-	'padding-top: 72px !important',
+	'padding-top: 72px',
 	'flex-direction: column',
 	'text-overflow: ellipsis',
 	'white-space: nowrap',
@@ -41,8 +40,6 @@ for (const token of requiredSource) {
 	if (!support.includes(token)) throw new Error(`Native/custom close-control contract is missing: ${token}`);
 }
 
-if (styles.includes('124px) !important')) {
-	throw new Error('The excessive mobile lightbox top padding returned.');
+if (styles.includes('124px') || styles.includes('!important')) {
+	throw new Error('The warning-free mobile lightbox contract regressed.');
 }
-
-console.log('Album Gallery native modal X removal validation passed.');

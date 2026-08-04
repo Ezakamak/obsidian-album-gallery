@@ -114,7 +114,7 @@ function updateMediaLanguage(view: MediaGalleryView): void {
 		const emptyDescription = view.contentEl.querySelector<HTMLElement>('.album-gallery-empty p');
 		if (emptyTitle?.textContent === 'No photos yet') emptyTitle.setText('No media yet');
 		if (emptyDescription?.textContent?.includes('choose photos')) {
-			emptyDescription.setText('Create an album, then choose photos, animated GIFs, or videos. Album Gallery stores them automatically inside the vault.');
+			emptyDescription.setText('Create an album, then choose photos, animated gifs, or videos. Album gallery stores them automatically inside the vault.');
 		}
 		const cards = Array.from(view.contentEl.querySelectorAll<HTMLElement>('.album-gallery-album-card'));
 		for (const [index, card] of cards.entries()) {
@@ -142,7 +142,7 @@ function updateMediaLanguage(view: MediaGalleryView): void {
 	const emptyAction = view.contentEl.querySelector<HTMLElement>('.album-gallery-empty-button');
 	if (emptyTitle?.textContent === 'Add photos to this album') emptyTitle.setText('Add media to this album');
 	if (emptyDescription?.textContent?.includes('Choose one or many photos')) {
-		emptyDescription.setText('Choose photos, animated GIFs, MP4/MOV videos, or WebM videos. The plugin creates and manages the storage folder automatically.');
+		emptyDescription.setText('Choose photos, animated gifs, mp4/mov videos, or webm videos. The plugin creates and manages the storage folder automatically.');
 	}
 	if (emptyAction?.textContent === 'Add photos') emptyAction.setText('Add media');
 }
@@ -274,11 +274,11 @@ class ConfirmMediaDeleteModal extends Modal {
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
 		actions.createEl('button', { text: 'Cancel', attr: { type: 'button' } }).addEventListener('click', () => this.close());
 		const confirm = actions.createEl('button', { cls: 'mod-warning', text: 'Delete', attr: { type: 'button' } });
-		confirm.addEventListener('click', async () => {
+		confirm.addEventListener('click', () => { void (async () => {
 			confirm.disabled = true;
 			await this.onConfirm();
 			this.close();
-		});
+		})(); });
 	}
 
 	onClose(): void {

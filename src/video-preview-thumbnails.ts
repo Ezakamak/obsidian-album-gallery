@@ -165,7 +165,7 @@ export function installVideoPreviewThumbnails(view: AlbumGalleryView): void {
 	host.renderImageElement = (container, image, alt) => {
 		const existingElements = new Set(Array.from(container.children));
 		const result = originalRenderMedia(container, image, alt);
-		const renderedVideo = result instanceof HTMLVideoElement
+		const renderedVideo = result && result.instanceOf(HTMLVideoElement)
 			? result
 			: Array.from(container.children).find((element): element is HTMLVideoElement => (
 				element.instanceOf(HTMLVideoElement) && !existingElements.has(element)

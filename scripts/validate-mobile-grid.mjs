@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 
 const styles = fs.readFileSync('styles.css', 'utf8');
-const startMarker = "/* Album Gallery mobile media grid — restored from proven 0.6.2 */";
-const endMarker = "/* End proven mobile media grid */";
+const startMarker = '/* Album Gallery mobile media grid — restored from proven 0.6.2 */';
+const endMarker = '/* End proven mobile media grid */';
 const start = styles.indexOf(startMarker);
 const end = styles.indexOf(endMarker, start);
 
@@ -14,10 +14,10 @@ const block = styles.slice(start, end + endMarker.length);
 const required = [
 	'repeat(2, minmax(0, 1fr))',
 	'aspect-ratio: 1',
-	'height: auto !important',
-	'.album-gallery-photo-card > img',
-	'.album-gallery-photo-card > video',
-	'object-fit: cover !important',
+	'height: auto',
+	'.album-gallery-view button.album-gallery-photo-card > img',
+	'.album-gallery-view button.album-gallery-photo-card > video',
+	'object-fit: cover',
 ];
 
 for (const token of required) {
@@ -27,5 +27,6 @@ for (const token of required) {
 if (/position\s*:\s*absolute/i.test(block)) {
 	throw new Error('Media cards must not use the failed absolute-position grid workaround.');
 }
-
-console.log('Album Gallery proven two-column mobile media grid validation passed.');
+if (block.includes('!important')) {
+	throw new Error('The mobile media-grid contract must not use !important.');
+}

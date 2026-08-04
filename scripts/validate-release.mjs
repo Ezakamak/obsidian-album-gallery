@@ -11,6 +11,7 @@ const requiredFiles = [
   'manifest.json',
   'styles.css',
   'package.json',
+  'package-lock.json',
   'versions.json',
 ];
 
@@ -93,6 +94,7 @@ if (main.includes('document.createElement("style")') || main.includes("document.
 if (main.includes('album-gallery-media-runtime-styles')) {
   fail('main.js still contains the removed runtime media-style injector.');
 }
+if (main.includes('document.createElement')) fail('main.js must use Obsidian DOM helpers instead of document.createElement.');
 
 const styleMarkers = [
   'safe-area-inset-top',
@@ -105,6 +107,7 @@ const styleMarkers = [
 for (const marker of styleMarkers) {
   if (!styles.includes(marker)) fail(`styles.css is missing release marker: ${marker}`);
 }
+if (styles.includes('!important')) fail('styles.css must not use !important.');
 
 const disclosureMarkers = [
   'Ekatech Study account',
@@ -120,4 +123,4 @@ if (!privacy.includes('https://ekatech.net')) fail('PRIVACY.md must disclose the
 if (!privacy.includes('does not upload normal album content')) fail('PRIVACY.md must disclose that normal albums remain local.');
 if (!releasing.includes('main.js') || !releasing.includes('manifest.json') || !releasing.includes('styles.css')) fail('RELEASING.md must list all required release assets.');
 
-console.log(`Album Gallery ${manifest.version} release files are internally consistent.`);
+

@@ -22,6 +22,7 @@ export default defineConfig(
         projectService: {
           allowDefaultProject: [
             'eslint.config.mjs',
+            'eslint.config.mts',
             'esbuild.config.mjs',
             'version-bump.mjs',
             'scripts/*.mjs',
@@ -34,6 +35,14 @@ export default defineConfig(
     },
   },
   ...obsidianmd.configs.recommended,
+  {
+    files: ['scripts/**/*.mjs', '*.mjs'],
+    rules: {
+      'obsidianmd/no-nodejs-modules': 'off',
+      'obsidianmd/rule-custom-message': 'off',
+      'no-console': 'off',
+    },
+  },
   {
     files: ['src/**/*.ts'],
     rules: {
