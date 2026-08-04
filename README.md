@@ -1,106 +1,148 @@
 # Album Gallery
 
-Album Gallery is an open-source Obsidian plugin that turns `.gallery` files into a simple, Apple Photos-inspired photo library.
-
-Users do not need to create folders or organize image files manually. Create an album, tap **Add photos**, choose one or many images, and the plugin stores them in a managed vault folder automatically.
+Album Gallery is an open-source Obsidian plugin for organizing photos, animated GIFs, and local videos in Apple Photos-inspired albums. It introduces a dedicated `.gallery` file type and keeps imported media inside the vault in a plugin-managed folder.
 
 ## Features
 
 - Dedicated `.gallery` document type
-- Photos and Albums sections
+- Media and Albums sections
 - Create, rename, and delete albums
-- Native mobile/desktop file picker with multi-select
+- Import multiple files with the native desktop or mobile file picker
+- Photo support, including JPEG, PNG, WebP, GIF, HEIC, HEIF, TIFF, SVG, AVIF, and BMP
+- Animated GIF playback
+- MP4, MOV, and WebM video support
+- Generated video thumbnails and a native video player
+- Full-screen lightbox with keyboard and swipe navigation
 - Automatic managed storage under `Album Gallery Assets/`
 - Safe duplicate filename handling
-- Full-screen lightbox with keyboard buttons and swipe navigation
-- Delete photos through Obsidian's trash system
-- Batched lazy rendering for large libraries
+- Obsidian trash integration for deleted media and albums
+- Batched rendering for large libraries
 - Responsive light and dark mode interface
-- Automatic migration of version 1 gallery files to version 2
+- iPhone safe-area support
+- Automatic migration of older gallery documents to the current format
 
-## How storage works
+## Ekatech Study integration
 
-A gallery file stores album metadata and image references as readable JSON. Imported photos are copied into a plugin-managed structure:
+Album Gallery includes an optional Ekatech Study integration for the **Hata Defteri** workflow.
+
+- Connecting an Ekatech Study account is optional.
+- The integration requires an Ekatech Study account. Available quota depends on the connected Study plan; some plans or services may be paid.
+- Album Gallery opens the Ekatech Study website only after the user confirms the redirect.
+- After a successful connection, the plugin creates an account-scoped **Hata Defteri** album.
+- Hata Defteri accepts photos only: JPG/JPEG, PNG, WebP, HEIC, and HEIF.
+- GIFs and videos are always rejected from Hata Defteri.
+- Each Hata Defteri photo is limited to 10 MB.
+- Selected Hata Defteri photos and their lesson/topic/mistake metadata are uploaded to the connected Ekatech Study account.
+- Normal albums, photos, GIFs, and videos remain local inside the vault and are never uploaded by the Study integration.
+- The user can refresh account information, change accounts, or sign out from the Study account manager.
+
+See [Privacy](PRIVACY.md) for the complete data and network disclosure.
+
+## Storage
+
+A `.gallery` file stores album metadata and media references as readable JSON. Imported media is copied into a managed structure:
 
 ```text
 Album Gallery Assets/
 └── <gallery-id>/
     └── <album-id>/
         ├── IMG_0001.heic
-        └── IMG_0002.jpg
+        ├── animation.gif
+        └── clip.mov
 ```
 
-The user never needs to create or select these folders. Gallery and album IDs remain stable when a `.gallery` file or album is renamed.
+The user does not need to create or select these folders. Gallery and album identifiers remain stable when a gallery file or album is renamed.
 
-Example version 2 gallery document:
-
-```json
-{
-  "version": 2,
-  "id": "gallery-id",
-  "title": "Travel",
-  "albums": [
-    {
-      "id": "album-id",
-      "name": "Ankara",
-      "images": [
-        {
-          "id": "image-id",
-          "path": "Album Gallery Assets/gallery-id/album-id/IMG_0001.jpg",
-          "name": "IMG_0001.jpg",
-          "addedAt": 1785772800000
-        }
-      ],
-      "createdAt": 1785772800000,
-      "updatedAt": 1785772800000
-    }
-  ],
-  "layout": {
-    "thumbnailSize": 220,
-    "gap": 4,
-    "sort": "added-desc"
-  }
-}
-```
-
-Deleting a managed photo or album moves its stored files to Obsidian's trash before removing the gallery metadata.
+Deleting a managed media item or album moves its stored files through Obsidian's trash system before removing the corresponding gallery metadata.
 
 ## Installation
 
-Copy these files into:
+### Community Plugins
+
+After Album Gallery is accepted into the Obsidian Community Plugins directory:
+
+1. Open **Settings → Community plugins**.
+2. Select **Browse**.
+3. Search for **Album Gallery**.
+4. Install and enable the plugin.
+
+### Manual installation
+
+Download `main.js`, `manifest.json`, and `styles.css` from the matching GitHub release, then copy them into:
 
 ```text
 <Vault>/.obsidian/plugins/album-gallery/
 ```
 
-Required files:
+Reload Obsidian and enable **Album Gallery** under **Settings → Community plugins**.
 
-- `main.js`
-- `manifest.json`
-- `styles.css`
+## Usage
 
-Enable **Album Gallery** under **Settings → Community plugins**, then reload Obsidian.
+1. Run **Album Gallery: Create new gallery** from the command palette, use the ribbon button, or choose **New gallery** from a folder menu.
+2. Create an album.
+3. Select **Add media** and choose photos, GIFs, or supported videos.
+4. Open a media card to view it in the lightbox or video player.
 
-## Ekatech Study local handoff
+Hata Defteri is shown only while an Ekatech Study account is connected. Add question photos from the Hata Defteri album itself.
 
-Album Gallery can connect to the Ekatech Study iOS app without copying account tokens into Obsidian. After approval in Study, each gallery receives a managed **Hata Defteri** album. **Send to Study** packages the album photos locally as numbered questions and opens the iOS share sheet. Ekatech Study imports the package into its existing batch mistake editor, where lesson, topic, mistake information, and review interval remain editable before saving.
+## Privacy and permissions
 
-The transfer package is passed device-to-device through iOS document sharing. Album Gallery does not upload these photos to a cloud service.
+- No advertising SDK
+- No analytics or telemetry
+- No background tracking
+- No access outside the Obsidian vault through the normal gallery feature
+- Network access is used only for the optional Ekatech Study account and Hata Defteri synchronization
+- Study authentication tokens are stored in Obsidian's plugin data for the current vault and are cleared when the user signs out
 
-## Local development
+For details, see [PRIVACY.md](PRIVACY.md).
+
+## Development
+
+Requirements:
+
+- Node.js 18 or later
+- npm
+
+Install dependencies and validate the project:
 
 ```bash
-npm install
+npm ci
+npm run check
+```
+
+Development build:
+
+```bash
 npm run dev
 ```
 
-Validation:
+Production build:
 
 ```bash
-npm run lint
 npm run build
 ```
 
+## Release process
+
+1. Update `manifest.json`, `package.json`, and `versions.json` when required.
+2. Run `npm ci`.
+3. Run `npm run check`.
+4. Create a GitHub release whose tag exactly matches the version in `manifest.json`, without a `v` prefix.
+5. Attach these files separately to the release:
+   - `main.js`
+   - `manifest.json`
+   - `styles.css`
+
+The release checklist is documented in [RELEASING.md](RELEASING.md).
+
+## Support and issues
+
+Report reproducible problems through the repository's GitHub Issues page. Do not include private Study account tokens, personal information, or private vault content in reports.
+
 ## License
 
-MIT
+[MIT](LICENSE)
+
+---
+
+Developed by Ekatech.

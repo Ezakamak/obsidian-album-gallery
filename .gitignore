@@ -7,6 +7,7 @@
 node_modules/
 dist/
 build/
+release/
 coverage/
 *.map
 *.log
@@ -29,5 +30,5 @@ dev-vault/
 .DS_Store
 Thumbs.db
 
-# Keep the production bundle in the repository so iOS users can install directly.
+# Keep the production bundle in the repository so mobile users can install directly.
 !main.js
