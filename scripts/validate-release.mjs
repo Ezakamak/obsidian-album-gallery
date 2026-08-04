@@ -6,11 +6,11 @@ const requiredFiles = [
   'PRIVACY.md',
   'RELEASING.md',
   'CHANGELOG.md',
+  'SECURITY.md',
   'main.js',
   'manifest.json',
   'styles.css',
   'package.json',
-  'package-lock.json',
   'versions.json',
 ];
 
@@ -32,10 +32,6 @@ async function readJson(path) {
   }
 }
 
-function stableObject(value) {
-  return JSON.stringify(value ?? {}, Object.keys(value ?? {}).sort());
-}
-
 for (const path of requiredFiles) {
   try {
     const info = await stat(path);
@@ -47,12 +43,12 @@ for (const path of requiredFiles) {
 
 const manifest = await readJson('manifest.json');
 const packageJson = await readJson('package.json');
-const packageLock = await readJson('package-lock.json');
 const versions = await readJson('versions.json');
 const main = await readText('main.js');
 const styles = await readText('styles.css');
 const readme = await readText('README.md');
 const privacy = await readText('PRIVACY.md');
+const releasing = await readText('RELEASING.md');
 
 const semverPattern = /^\d+\.\d+\.\d+$/;
 const pluginIdPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -63,20 +59,23 @@ if (String(manifest.id).endsWith('-plugin')) fail('manifest.id must not end with
 if (!semverPattern.test(manifest.version ?? '')) fail('manifest.version must be x.y.z without a v prefix.');
 if (!semverPattern.test(manifest.minAppVersion ?? '')) fail('manifest.minAppVersion must be x.y.z.');
 if (manifest.version !== packageJson.version) fail('manifest.json and package.json versions do not match.');
-if (packageLock.lockfileVersion !== 3) fail('package-lock.json must use lockfileVersion 3.');
-if (stableObject(packageLock.packages?.['']?.devDependencies) !== stableObject(packageJson.devDependencies)) {
-  fail('package-lock.json root development dependencies do not match package.json.');
-}
-if (versions[manifest.version] !== manifest.minAppVersion) {
-  fail('versions.json must map the current plugin version to manifest.minAppVersion.');
-}
+if (versions[manifest.version] !== manifest.minAppVersion) fail('versions.json must map the current plugin version to manifest.minAppVersion.');
 if (manifest.isDesktopOnly !== false) fail('The manifest must explicitly keep mobile support enabled.');
+if (packageJson.name !== 'obsidian-album-gallery') fail('package.json has an unexpected package name.');
+if (packageJson.license !== 'MIT') fail('package.json must declare the MIT license.');
+if (!String(packageJson.packageManager ?? '').startsWith('npm@')) fail('package.json must pin the npm package manager.');
+if (!packageJson.engines?.node) fail('package.json must declare the supported Node.js version.');
+
+for (const [name, version] of Object.entries(packageJson.devDependencies ?? {})) {
+  if (!semverPattern.test(String(version))) fail(`Development dependency ${name} must use an exact version.`);
+}
 
 for (const key of ['id', 'name', 'version', 'minAppVersion', 'description', 'author']) {
   if (typeof manifest[key] !== 'string' || !manifest[key].trim()) fail(`manifest.${key} is required.`);
 }
 
 const runtimeMarkers = [
+  `Album Gallery ${manifest.version}`,
   'module.exports',
   'Hata Defteri',
   'SUPPORTED_VIDEO_EXTENSIONS',
@@ -112,5 +111,6 @@ for (const marker of disclosureMarkers) {
 }
 if (!privacy.includes('https://ekatech.net')) fail('PRIVACY.md must disclose the Ekatech Study network host.');
 if (!privacy.includes('does not upload normal album content')) fail('PRIVACY.md must disclose that normal albums remain local.');
+if (!releasing.includes('main.js') || !releasing.includes('manifest.json') || !releasing.includes('styles.css')) fail('RELEASING.md must list all required release assets.');
 
 console.log(`Album Gallery ${manifest.version} release files are internally consistent.`);
