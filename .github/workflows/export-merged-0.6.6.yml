@@ -1,0 +1,39 @@
+name: Export merged Album Gallery 0.6.6 files
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - .github/workflows/export-merged-0.6.6.yml
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a17283ccbde84823a8da251a2f05386f64e4c61d
+      - name: Verify merged files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./manifest.json').version")" = "0.6.6"
+          grep -q 'repeat(2, minmax(0, 1fr))' styles.css
+          grep -q 'Album Gallery 0.6.6' main.js
+          grep -q 'album-gallery-lightbox-previous' main.js
+          grep -q 'translateY(-50%)' main.js
+          node --check main.js
+      - name: Upload exact plugin files
+        uses: actions/upload-artifact@v4
+        with:
+          name: album-gallery-0.6.6-merged-files
+          path: |
+            main.js
+            manifest.json
+            styles.css
+          if-no-files-found: error
+          retention-days: 1
