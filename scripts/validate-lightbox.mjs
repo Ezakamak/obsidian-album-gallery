@@ -35,7 +35,14 @@ for (const token of requiredSource) {
 	if (!support.includes(token)) throw new Error(`Custom lightbox close control is missing: ${token}`);
 }
 
-if (/.album-gallery-lightbox-modal .modal-close-button {[sS]*?position:s*fixed/i.test(styles)) {
+const nativeCloseSelector = '.album-gallery-lightbox-modal .modal-close-button {';
+const nativeCloseStart = styles.indexOf(nativeCloseSelector);
+const nativeCloseEnd = styles.indexOf('}', nativeCloseStart);
+if (nativeCloseStart < 0 || nativeCloseEnd < 0) {
+	throw new Error('The native Obsidian close-button suppression rule is missing.');
+}
+const nativeCloseBlock = styles.slice(nativeCloseStart, nativeCloseEnd + 1);
+if (nativeCloseBlock.includes('position: fixed')) {
 	throw new Error('The unreliable fixed native Obsidian close-button override returned.');
 }
 if (styles.includes('124px) !important')) {
