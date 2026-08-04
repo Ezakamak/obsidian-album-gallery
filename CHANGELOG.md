@@ -2,6 +2,17 @@
 
 All notable changes to Album Gallery are documented here.
 
+## 0.6.5
+
+### Fixed
+
+- Restored the proven two-column iPhone media grid from the correctly working 0.6.2 package
+- Restored square photo, GIF, and video cards with full-width cover cropping
+- Prevented Obsidian mobile button and intrinsic media sizing from collapsing previews into strips
+- Added a permanent release validation that rejects removal of the mobile grid contract or the failed absolute-position workaround
+- Removed the stale unused TFile import that blocked the repository lint gate
+- Replaced brittle minified-variable and outdated UI-copy release assertions with stable runtime MIME and feature checks
+
 ## 0.6.4
 
 ### Added

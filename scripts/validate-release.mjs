@@ -78,11 +78,9 @@ const runtimeMarkers = [
   `Album Gallery ${manifest.version}`,
   'module.exports',
   'Hata Defteri',
-  'SUPPORTED_VIDEO_EXTENSIONS',
   'video/mp4',
   'video/quicktime',
   'video/webm',
-  'Study hesabına giriş',
 ];
 for (const marker of runtimeMarkers) {
   if (!main.includes(marker)) fail(`main.js is missing runtime marker: ${marker}`);
