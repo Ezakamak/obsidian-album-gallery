@@ -1,0 +1,37 @@
+name: Package merged Album Gallery 0.6.5 files
+
+on:
+  push:
+    branches:
+      - packaging/export-merged-0.6.5
+    paths:
+      - .github/workflows/export-merged-0.6.5.yml
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 924e797ea6f7ac4cb78e552bc430f972e25d1df9
+      - name: Verify merged files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./manifest.json').version")" = "0.6.5"
+          grep -q 'repeat(2, minmax(0, 1fr))' styles.css
+          grep -q 'object-fit: cover !important' styles.css
+          node --check main.js
+      - name: Upload exact plugin files
+        uses: actions/upload-artifact@v4
+        with:
+          name: album-gallery-0.6.5-merged-files
+          path: |
+            main.js
+            manifest.json
+            styles.css
+          if-no-files-found: error
+          retention-days: 1
