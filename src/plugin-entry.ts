@@ -4,6 +4,7 @@ import { AlbumGalleryView } from './gallery-view';
 import AlbumGalleryPlugin from './main';
 import { installGalleryMediaSupport } from './media-support';
 import { installGalleryMediaStyles } from './media-styles';
+import { installVideoPreviewThumbnails } from './video-preview-thumbnails';
 
 interface RegisterViewHost {
 	registerView(type: string, viewCreator: (leaf: WorkspaceLeaf) => unknown): void;
@@ -19,6 +20,7 @@ export default class AlbumGalleryMediaPlugin extends AlbumGalleryPlugin {
 				const view = viewCreator(leaf);
 				if (type === GALLERY_VIEW_TYPE && view instanceof AlbumGalleryView) {
 					installGalleryMediaSupport(view);
+					installVideoPreviewThumbnails(view);
 				}
 				return view;
 			});
