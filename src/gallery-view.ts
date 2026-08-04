@@ -86,10 +86,7 @@ export class AlbumGalleryView extends TextFileView {
 		this.document = parseGalleryDocument(data, fallbackTitle);
 
 		let shouldSave = !isGalleryDocumentV2(data);
-		if (this.file && this.document.title !== this.file.basename) {
-			this.document.title = this.file.basename;
-			shouldSave = true;
-		}
+		if (this.syncTitleWithFileName()) shouldSave = true;
 		if (this.plugin.ekatechStudyConnected && !this.findEkatechStudyAlbum()) {
 			this.ensureEkatechStudyAlbum();
 			shouldSave = true;
@@ -116,12 +113,21 @@ export class AlbumGalleryView extends TextFileView {
 		await super.onClose();
 	}
 
+	private syncTitleWithFileName(): boolean {
+		const fileTitle = this.file?.basename;
+		if (!fileTitle || this.document.title === fileTitle) return false;
+		this.document.title = fileTitle;
+		return true;
+	}
+
 	requestVaultRefresh(): void {
 		if (this.importingAlbumId) return;
 		if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
 		this.refreshTimer = window.setTimeout(() => {
 			this.refreshTimer = null;
+			const titleChanged = this.syncTitleWithFileName();
 			this.render();
+			if (titleChanged) this.requestSave();
 		}, 180);
 	}
 
