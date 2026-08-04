@@ -1,46 +1,42 @@
-import js from '@eslint/js';
+import obsidianmd from 'eslint-plugin-obsidianmd';
 import globals from 'globals';
-import tseslint from 'typescript-eslint';
+import { defineConfig, globalIgnores } from 'eslint/config';
 
-export default tseslint.config(
+export default defineConfig(
+  globalIgnores([
+    'node_modules/**',
+    'release/**',
+    'dist/**',
+    'build/**',
+    'coverage/**',
+    'main.js',
+    'package-lock.json',
+  ]),
   {
-    ignores: [
-      'main.js',
-      'node_modules/**',
-      'release/**',
-      'dist/**',
-      'build/**',
-      'coverage/**',
-    ],
-  },
-  {
-    files: ['scripts/**/*.mjs', '*.mjs'],
-    ...js.configs.recommended,
     languageOptions: {
-      ...js.configs.recommended.languageOptions,
-      ecmaVersion: 2022,
-      sourceType: 'module',
-      globals: {
-        ...globals.node,
-      },
-    },
-  },
-  ...tseslint.configs.recommended.map((config) => ({
-    ...config,
-    files: ['src/**/*.ts'],
-  })),
-  {
-    files: ['src/**/*.ts'],
-    languageOptions: {
-      ecmaVersion: 2021,
-      sourceType: 'module',
       globals: {
         ...globals.browser,
         ...globals.node,
       },
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: [
+            'eslint.config.mjs',
+            'esbuild.config.mjs',
+            'version-bump.mjs',
+            'scripts/*.mjs',
+            'manifest.json',
+          ],
+        },
+        tsconfigRootDir: import.meta.dirname,
+        extraFileExtensions: ['.json'],
+      },
     },
+  },
+  ...obsidianmd.configs.recommended,
+  {
+    files: ['src/**/*.ts'],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
