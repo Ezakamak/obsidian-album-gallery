@@ -47,7 +47,7 @@ support = replaceOnce(
 support = replaceOnce(
 	support,
 	`\tprivate releaseVideo(): void {`,
-	`\tprivate removeNativeCloseControl(): void {\n\t\tfor (const closeButton of this.containerEl.querySelectorAll<HTMLElement>('.modal-close-button')) {\n\t\t\tcloseButton.remove();\n\t\t}\n\t}\n\n\tprivate releaseVideo(): void {`,
+	`\tprivate removeNativeCloseControl(): void {\n\t\tthis.containerEl.querySelectorAll<HTMLElement>('.modal-close-button')\n\t\t\t.forEach((closeButton) => closeButton.remove());\n\t}\n\n\tprivate releaseVideo(): void {`,
 	'the releaseVideo method anchor',
 );
 write('src/media-support.ts', support);
